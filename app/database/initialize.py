@@ -125,6 +125,112 @@ def initialize_database() -> None:
             )
             """,
         ],
+        3: [
+            """
+            ALTER TABLE materials
+            ADD COLUMN minimum_stock_quantity_milli INTEGER
+            NOT NULL DEFAULT 0
+            CHECK (minimum_stock_quantity_milli >= 0)
+            """,
+        ],
+        4: [
+            """
+            CREATE TABLE stock_movements (
+                id INTEGER PRIMARY KEY,
+
+                material_id INTEGER,
+                product_id INTEGER,
+
+                movement_type TEXT NOT NULL CHECK (
+                    movement_type IN (
+                        'purchase',
+                        'production_consumption',
+                        'production_output',
+                        'sale',
+                        'adjustment_in',
+                        'adjustment_out',
+                        'reversal'
+                    )
+                ),
+
+                quantity_milli INTEGER NOT NULL
+                    CHECK (quantity_milli != 0),
+
+                occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                reference_type TEXT,
+                reference_id INTEGER,
+                notes TEXT,
+
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                CHECK (
+                    (material_id IS NOT NULL AND product_id IS NULL)
+                    OR
+                    (material_id IS NULL AND product_id IS NOT NULL)
+                ),
+
+                CHECK (
+                    movement_type = 'reversal'
+                    OR
+                    movement_type = 'adjustment_in'
+                    OR
+                    movement_type = 'adjustment_out'
+                    OR
+                    (movement_type IN ('purchase', 'production_output')
+                     AND quantity_milli > 0)
+                    OR
+                    (movement_type IN ('production_consumption', 'sale')
+                     AND quantity_milli < 0)
+                ),
+
+                CHECK (
+                    movement_type NOT IN (
+                        'purchase',
+                        'production_consumption'
+                    )
+                    OR material_id IS NOT NULL
+                ),
+
+                CHECK (
+                    movement_type NOT IN (
+                        'production_output',
+                        'sale'
+                    )
+                    OR product_id IS NOT NULL
+                ),
+
+                FOREIGN KEY (material_id)
+                    REFERENCES materials(id) ON DELETE RESTRICT,
+
+                FOREIGN KEY (product_id)
+                    REFERENCES products(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE INDEX idx_stock_movements_material
+            ON stock_movements(material_id, occurred_at)
+            """,
+            """
+            CREATE INDEX idx_stock_movements_product
+            ON stock_movements(product_id, occurred_at)
+            """,
+            """
+            CREATE INDEX idx_stock_movements_reference
+            ON stock_movements(reference_type, reference_id)
+            """,
+        ],
+        5: [
+            """
+            ALTER TABLE stock_movements
+            ADD COLUMN reversal_of_id INTEGER
+            REFERENCES stock_movements(id) ON DELETE RESTRICT
+            """,
+            """
+            CREATE UNIQUE INDEX idx_stock_movements_reversal
+            ON stock_movements(reversal_of_id)
+            WHERE reversal_of_id IS NOT NULL
+            """,
+        ],
     }
 
     with get_connection() as connection:

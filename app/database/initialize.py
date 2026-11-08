@@ -231,6 +231,17 @@ def initialize_database() -> None:
             WHERE reversal_of_id IS NOT NULL
             """,
         ],
+        6: [
+            """
+            ALTER TABLE purchase_items
+            ADD COLUMN landed_cost_cents INTEGER NOT NULL DEFAULT 0
+            CHECK (landed_cost_cents >= 0)
+            """,
+            """
+            ALTER TABLE stock_movements
+            ADD COLUMN value_cents INTEGER NOT NULL DEFAULT 0
+            """,
+        ],
     }
 
     with get_connection() as connection:

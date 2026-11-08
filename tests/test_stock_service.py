@@ -41,6 +41,7 @@ def test_db(tmp_path, monkeypatch):
                 product_id INTEGER,
                 movement_type TEXT NOT NULL,
                 quantity_milli INTEGER NOT NULL,
+                value_cents INTEGER NOT NULL DEFAULT 0,
                 occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 reference_type TEXT,
                 reference_id INTEGER,
@@ -80,6 +81,7 @@ def test_register_material_entry(test_db):
         item_id=1,
         movement_type="purchase",
         quantity_milli=1000000,
+        value_cents=8500,
     )
 
     balance = stock_service.get_stock_balance("material", 1)
@@ -89,7 +91,7 @@ def test_register_material_entry(test_db):
 
 def test_register_material_consumption(test_db):
     stock_service.register_stock_movement(
-        "material", 1, "purchase", 1000000
+        "material", 1, "purchase", 1000000, value_cents=8500
     )
 
     stock_service.register_stock_movement(
@@ -103,7 +105,8 @@ def test_register_material_consumption(test_db):
 
 def test_register_product_output_and_sale(test_db):
     stock_service.register_stock_movement(
-        "product", 1, "production_output", 5000
+        "product", 1, "production_output", 5000,
+        value_cents=2500,
     )
 
     stock_service.register_stock_movement(
@@ -117,7 +120,7 @@ def test_register_product_output_and_sale(test_db):
 
 def test_insufficient_stock_is_rejected(test_db):
     stock_service.register_stock_movement(
-        "material", 1, "purchase", 10000
+        "material", 1, "purchase", 10000, value_cents=100
     )
 
     with pytest.raises(ValueError, match="Estoque insuficiente"):
@@ -163,7 +166,7 @@ def test_inactive_material_is_rejected(test_db):
         )
 def test_reverse_purchase(test_db):
     purchase_id = stock_service.register_stock_movement(
-        "material", 1, "purchase", 100000
+        "material", 1, "purchase", 100000, value_cents=100,
     )
 
     stock_service.reverse_stock_movement(purchase_id)
@@ -173,7 +176,8 @@ def test_reverse_purchase(test_db):
 
 def test_cannot_reverse_same_movement_twice(test_db):
     purchase_id = stock_service.register_stock_movement(
-        "material", 1, "purchase", 100000
+        "material", 1, "purchase", 100000,
+        value_cents=100,
     )
 
     stock_service.reverse_stock_movement(purchase_id)
@@ -184,7 +188,8 @@ def test_cannot_reverse_same_movement_twice(test_db):
 
 def test_cannot_reverse_movement_if_it_causes_negative_stock(test_db):
     purchase_id = stock_service.register_stock_movement(
-        "material", 1, "purchase", 100000
+        "material", 1, "purchase", 100000,
+        value_cents=100,
     )
 
     stock_service.register_stock_movement(
@@ -198,8 +203,9 @@ def test_cannot_reverse_movement_if_it_causes_negative_stock(test_db):
 
 
 def test_reverse_product_sale(test_db):
-    production_id = stock_service.register_stock_movement(
-        "product", 1, "production_output", 5000
+    stock_service.register_stock_movement(
+        "product", 1, "production_output", 5000,
+        value_cents=2500,
     )
 
     sale_id = stock_service.register_stock_movement(
@@ -209,3 +215,65 @@ def test_reverse_product_sale(test_db):
     stock_service.reverse_stock_movement(sale_id)
 
     assert stock_service.get_stock_balance("product", 1) == 5000
+
+
+def test_purchase_records_financial_value(test_db):
+    stock_service.register_stock_movement(
+        "material", 1, "purchase", 1000000,
+        value_cents=8500,
+    )
+
+    valuation = stock_service.get_stock_valuation("material", 1)
+
+    assert valuation["quantity_milli"] == 1000000
+    assert valuation["value_cents"] == 8500
+
+
+def test_consumption_reduces_stock_value_by_average_cost(test_db):
+    stock_service.register_stock_movement(
+        "material", 1, "purchase", 1000000,
+        value_cents=8500,
+    )
+
+    stock_service.register_stock_movement(
+        "material", 1, "purchase", 1000000,
+        value_cents=10000,
+    )
+
+    stock_service.register_stock_movement(
+        "material", 1, "production_consumption", -100000,
+    )
+
+    valuation = stock_service.get_stock_valuation("material", 1)
+
+    assert valuation["quantity_milli"] == 1900000
+    assert valuation["value_cents"] == 17575
+
+
+def test_reversal_restores_quantity_and_financial_value(test_db):
+    purchase_id = stock_service.register_stock_movement(
+        "material", 1, "purchase", 1000000,
+        value_cents=8500,
+    )
+
+    stock_service.reverse_stock_movement(purchase_id)
+
+    valuation = stock_service.get_stock_valuation("material", 1)
+
+    assert valuation["quantity_milli"] == 0
+    assert valuation["value_cents"] == 0
+
+
+def test_entry_requires_financial_value(test_db):
+    with pytest.raises(ValueError, match="valor financeiro"):
+        stock_service.register_stock_movement(
+            "material", 1, "purchase", 1000000,
+        )
+
+
+def test_negative_financial_value_is_rejected(test_db):
+    with pytest.raises(ValueError, match="não pode ser negativo"):
+        stock_service.register_stock_movement(
+            "material", 1, "purchase", 1000000,
+            value_cents=-100,
+        )

@@ -1,7 +1,6 @@
 
 from app.database.connection import get_connection
 
-
 DEFAULT_UNITS = [
     # Contagem: unidade-base = unidade
     ("Unidade", "un", "count", 1000, 1, 1),

@@ -1,9 +1,10 @@
-import pytest
 from fractions import Fraction
 
+import pytest
+
 from app.services.average_cost_calculator import (
-    calculate_weighted_average_cost,
     calculate_consumption_cost_cents,
+    calculate_weighted_average_cost,
 )
 
 

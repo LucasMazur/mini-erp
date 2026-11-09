@@ -3,7 +3,6 @@ from app.services.average_cost_calculator import (
     calculate_consumption_cost_cents,
 )
 
-
 MOVEMENT_RULES = {
     "purchase": ("material", 1),
     "production_consumption": ("material", -1),
@@ -113,7 +112,7 @@ def _register_stock_movement(
         )
 
     if not isinstance(quantity_milli, int) or isinstance(quantity_milli, bool):
-        raise ValueError("A quantidade deve ser um número inteiro.")
+        raise TypeError("A quantidade deve ser um número inteiro.")
 
     if quantity_milli == 0:
         raise ValueError("A quantidade não pode ser zero.")

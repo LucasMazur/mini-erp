@@ -242,6 +242,213 @@ def initialize_database() -> None:
             ADD COLUMN value_cents INTEGER NOT NULL DEFAULT 0
             """,
         ],
+        7: [
+            """
+            CREATE TABLE product_recipes (
+                id INTEGER PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                is_default INTEGER NOT NULL DEFAULT 0
+                    CHECK (is_default IN (0, 1)),
+                active INTEGER NOT NULL DEFAULT 1
+                    CHECK (active IN (0, 1)),
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id)
+                    REFERENCES products(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE UNIQUE INDEX idx_product_recipes_default
+            ON product_recipes(product_id)
+            WHERE is_default = 1 AND active = 1
+            """,
+            """
+            CREATE TABLE recipe_versions (
+                id INTEGER PRIMARY KEY,
+                recipe_id INTEGER NOT NULL,
+                version_number INTEGER NOT NULL
+                    CHECK (version_number > 0),
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (recipe_id, version_number),
+                FOREIGN KEY (recipe_id)
+                    REFERENCES product_recipes(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE TABLE recipe_items (
+                id INTEGER PRIMARY KEY,
+                recipe_version_id INTEGER NOT NULL,
+                material_id INTEGER NOT NULL,
+                quantity_milli INTEGER NOT NULL
+                    CHECK (quantity_milli > 0),
+                material_name_snapshot TEXT NOT NULL,
+                unit_symbol_snapshot TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (recipe_version_id, material_id),
+                FOREIGN KEY (recipe_version_id)
+                    REFERENCES recipe_versions(id) ON DELETE RESTRICT,
+                FOREIGN KEY (material_id)
+                    REFERENCES materials(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE INDEX idx_product_recipes_product
+            ON product_recipes(product_id)
+            """,
+            """
+            CREATE INDEX idx_recipe_versions_recipe
+            ON recipe_versions(recipe_id, version_number)
+            """,
+            """
+            CREATE INDEX idx_recipe_items_version
+            ON recipe_items(recipe_version_id)
+            """,
+        ],
+        8: [
+            """
+            ALTER TABLE recipe_versions
+            ADD COLUMN finalized_at TEXT
+            """,
+            """
+            CREATE TRIGGER prevent_insert_into_finalized_recipe
+            BEFORE INSERT ON recipe_items
+            WHEN EXISTS (
+                SELECT 1
+                FROM recipe_versions
+                WHERE id = NEW.recipe_version_id
+                  AND finalized_at IS NOT NULL
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'Versão da receita já finalizada.');
+            END
+            """,
+            """
+            CREATE TRIGGER prevent_update_finalized_recipe_item
+            BEFORE UPDATE ON recipe_items
+            WHEN EXISTS (
+                SELECT 1
+                FROM recipe_versions
+                WHERE id = OLD.recipe_version_id
+                  AND finalized_at IS NOT NULL
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM recipe_versions
+                WHERE id = NEW.recipe_version_id
+                  AND finalized_at IS NOT NULL
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'Versão da receita já finalizada.');
+            END
+            """,
+            """
+            CREATE TRIGGER prevent_delete_from_finalized_recipe
+            BEFORE DELETE ON recipe_items
+            WHEN EXISTS (
+                SELECT 1
+                FROM recipe_versions
+                WHERE id = OLD.recipe_version_id
+                  AND finalized_at IS NOT NULL
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'Versão da receita já finalizada.');
+            END
+            """,
+            """
+            CREATE TRIGGER prevent_update_finalized_recipe_version
+            BEFORE UPDATE ON recipe_versions
+            WHEN OLD.finalized_at IS NOT NULL
+            BEGIN
+                SELECT RAISE(ABORT, 'Versão da receita já finalizada.');
+            END
+            """,
+            """
+            CREATE TRIGGER prevent_delete_finalized_recipe_version
+            BEFORE DELETE ON recipe_versions
+            WHEN OLD.finalized_at IS NOT NULL
+            BEGIN
+                SELECT RAISE(ABORT, 'Versão da receita já finalizada.');
+            END
+            """,
+        ],
+        
+        9: [
+            """
+            CREATE TABLE productions (
+                id INTEGER PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                recipe_id INTEGER NOT NULL,
+                recipe_version_id INTEGER NOT NULL,
+
+                product_name_snapshot TEXT NOT NULL,
+                recipe_name_snapshot TEXT NOT NULL,
+                recipe_version_number INTEGER NOT NULL
+                    CHECK (recipe_version_number > 0),
+
+                quantity_milli INTEGER NOT NULL
+                    CHECK (quantity_milli > 0),
+
+                total_cost_cents INTEGER NOT NULL
+                    CHECK (total_cost_cents >= 0),
+
+                occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (product_id)
+                    REFERENCES products(id) ON DELETE RESTRICT,
+
+                FOREIGN KEY (recipe_id)
+                    REFERENCES product_recipes(id) ON DELETE RESTRICT,
+
+                FOREIGN KEY (recipe_version_id)
+                    REFERENCES recipe_versions(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE TABLE production_items (
+                id INTEGER PRIMARY KEY,
+                production_id INTEGER NOT NULL,
+                material_id INTEGER NOT NULL,
+
+                quantity_milli INTEGER NOT NULL
+                    CHECK (quantity_milli > 0),
+
+                total_cost_cents INTEGER NOT NULL
+                    CHECK (total_cost_cents >= 0),
+
+                material_name_snapshot TEXT NOT NULL,
+                unit_symbol_snapshot TEXT NOT NULL,
+
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (production_id)
+                    REFERENCES productions(id) ON DELETE RESTRICT,
+
+                FOREIGN KEY (material_id)
+                    REFERENCES materials(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE INDEX idx_productions_product
+            ON productions(product_id, occurred_at)
+            """,
+            """
+            CREATE INDEX idx_productions_recipe
+            ON productions(recipe_id, recipe_version_id)
+            """,
+            """
+            CREATE INDEX idx_production_items_production
+            ON production_items(production_id)
+            """,
+            """
+            CREATE INDEX idx_production_items_material
+            ON production_items(material_id)
+            """,
+        ],
+
     }
 
     with get_connection() as connection:

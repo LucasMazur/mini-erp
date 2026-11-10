@@ -12,16 +12,20 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.pages.dashboard_page import DashboardPage
+from app.ui.pages.materials_page import MaterialsPage
 from app.ui.pages.products_page import ProductsPage
+from app.ui.pages.purchases_page import PurchasesPage
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Mini ERP")
+        self.setWindowTitle("MAZURON ERP")
         self.resize(1200, 750)
         self.setMinimumSize(950, 600)
+
+        self.menu_buttons = {}
 
         self._create_interface()
 
@@ -39,55 +43,92 @@ class MainWindow(QMainWindow):
         self.pages = QStackedWidget()
         self.pages.addWidget(DashboardPage())
         self.pages.addWidget(ProductsPage())
+        self.pages.addWidget(MaterialsPage())
+        self.pages.addWidget(PurchasesPage())
 
         main_layout.addWidget(self.pages)
 
+        self._navigate_to(0)
+
     def _create_sidebar(self):
         sidebar = QFrame()
-        sidebar.setFixedWidth(230)
+        sidebar.setFixedWidth(245)
         sidebar.setObjectName("sidebar")
 
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(18, 24, 18, 20)
-        layout.setSpacing(10)
+        layout.setContentsMargins(20, 28, 20, 20)
+        layout.setSpacing(9)
 
-        logo = QLabel("MINI ERP")
-        logo.setObjectName("logo")
-        layout.addWidget(logo)
+        # Identidade da marca
+        brand_layout = QHBoxLayout()
+        brand_layout.setSpacing(12)
 
-        subtitle = QLabel("Gestão do seu negócio")
-        subtitle.setObjectName("sidebar_subtitle")
-        layout.addWidget(subtitle)
+        brand_mark = QLabel("M")
+        brand_mark.setObjectName("brand_mark")
+        brand_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand_layout.addWidget(brand_mark)
 
-        layout.addSpacing(30)
+        brand_text_layout = QVBoxLayout()
+        brand_text_layout.setSpacing(0)
+
+        brand_name = QLabel("MAZURON")
+        brand_name.setObjectName("brand_name")
+        brand_text_layout.addWidget(brand_name)
+
+        brand_erp = QLabel("E R P")
+        brand_erp.setObjectName("brand_erp")
+        brand_text_layout.addWidget(brand_erp)
+
+        brand_layout.addLayout(brand_text_layout)
+        brand_layout.addStretch()
+
+        layout.addLayout(brand_layout)
+
+        tagline = QLabel("Mais controle para o seu negócio.")
+        tagline.setObjectName("brand_tagline")
+        tagline.setWordWrap(True)
+        layout.addWidget(tagline)
+
+        layout.addSpacing(28)
 
         menu_items = [
-            "Visão geral",
-            "Produtos",
-            "Materiais",
-            "Receitas",
-            "Produção",
-            "Vendas",
-            "Financeiro",
-            "Fornecedores",
-            "Relatórios",
+            ("Visão geral", 0),
+            ("Produtos", 1),
+            ("Materiais", 2),
+            ("Compras", 3),
+            ("Receitas", None),
+            ("Produção", None),
+            ("Vendas", None),
+            ("Financeiro", None),
+            ("Fornecedores", None),
+            ("Relatórios", None),
         ]
 
-        for index, item in enumerate(menu_items):
+        for item, page_index in menu_items:
             button = QPushButton(item)
             button.setObjectName("menu_button")
             button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setCheckable(True)
 
-            if item == "Visão geral":
+            if page_index is not None:
+                self.menu_buttons[page_index] = button
                 button.clicked.connect(
-                    lambda checked=False: self.pages.setCurrentIndex(0)
-                )
-
-            elif item == "Produtos":
-                button.clicked.connect(
-                    lambda checked=False: self.pages.setCurrentIndex(1)
+                    lambda checked=False, index=page_index:
+                    self._navigate_to(index)
                 )
 
             layout.addWidget(button)
 
+        layout.addStretch()
+
+        footer = QLabel("MAZURON ERP  •  Gestão inteligente")
+        footer.setObjectName("sidebar_footer")
+        layout.addWidget(footer)
+
         return sidebar
+
+    def _navigate_to(self, index):
+        self.pages.setCurrentIndex(index)
+
+        for page_index, button in self.menu_buttons.items():
+            button.setChecked(page_index == index)

@@ -364,3 +364,45 @@ def reverse_stock_movement(
 
     finally:
         connection.close()
+def list_stock_movements(
+    item_type: str,
+    item_id: int,
+) -> list[dict]:
+    """Lista o histórico de movimentações de um material ou produto."""
+
+    if item_type not in ("material", "product"):
+        raise ValueError("Tipo de item inválido.")
+
+    column = "material_id" if item_type == "material" else "product_id"
+    table = "materials" if item_type == "material" else "products"
+
+    with get_connection() as connection:
+        item = connection.execute(
+            f"SELECT id FROM {table} WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+
+        if item is None:
+            raise ValueError("Material ou produto não encontrado.")
+
+        movements = connection.execute(
+            f"""
+            SELECT
+                id,
+                movement_type,
+                quantity_milli,
+                value_cents,
+                occurred_at,
+                reference_type,
+                reference_id,
+                notes,
+                reversal_of_id,
+                created_at
+            FROM stock_movements
+            WHERE {column} = ?
+            ORDER BY occurred_at DESC, id DESC
+            """,
+            (item_id,),
+        ).fetchall()
+
+    return [dict(movement) for movement in movements]

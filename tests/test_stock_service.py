@@ -277,3 +277,73 @@ def test_negative_financial_value_is_rejected(test_db):
             "material", 1, "purchase", 1000000,
             value_cents=-100,
         )
+def test_list_stock_movements_returns_material_history(test_db):
+    stock_service.register_stock_movement(
+        "material", 1, "purchase", 1000000,
+        value_cents=8500,
+        notes="Compra de PLA",
+    )
+
+    stock_service.register_stock_movement(
+        "material", 1, "production_consumption", -100000,
+        notes="Consumo na produção",
+    )
+
+    movements = stock_service.list_stock_movements(
+        "material", 1
+    )
+
+    assert len(movements) == 2
+
+    # Mais recente primeiro
+    assert movements[0]["movement_type"] == "production_consumption"
+    assert movements[0]["quantity_milli"] == -100000
+
+    assert movements[1]["movement_type"] == "purchase"
+    assert movements[1]["quantity_milli"] == 1000000
+    assert movements[1]["value_cents"] == 8500
+    assert movements[1]["notes"] == "Compra de PLA"
+
+
+def test_list_stock_movements_includes_reversals(test_db):
+    purchase_id = stock_service.register_stock_movement(
+        "material", 1, "purchase", 100000,
+        value_cents=100,
+    )
+
+    stock_service.reverse_stock_movement(purchase_id)
+
+    movements = stock_service.list_stock_movements(
+        "material", 1
+    )
+
+    assert len(movements) == 2
+    assert movements[0]["movement_type"] == "reversal"
+    assert movements[0]["reversal_of_id"] == purchase_id
+
+
+def test_list_stock_movements_includes_inactive_material(test_db):
+    stock_service.register_stock_movement(
+        "material", 1, "purchase", 100000,
+        value_cents=100,
+    )
+
+    with test_db() as connection:
+        connection.execute(
+            "UPDATE materials SET active = 0 WHERE id = 1"
+        )
+
+    movements = stock_service.list_stock_movements(
+        "material", 1
+    )
+
+    assert len(movements) == 1
+    assert movements[0]["movement_type"] == "purchase"
+
+
+def test_list_stock_movements_rejects_invalid_item(test_db):
+    with pytest.raises(ValueError, match="Tipo de item inválido"):
+        stock_service.list_stock_movements("invalid", 1)
+
+    with pytest.raises(ValueError, match="não encontrado"):
+        stock_service.list_stock_movements("material", 999)

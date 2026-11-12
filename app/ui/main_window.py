@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.pages.dashboard_page import DashboardPage
+from app.ui.pages.categories_page import CategoriesPage
 from app.ui.pages.materials_page import MaterialsPage
 from app.ui.pages.products_page import ProductsPage
 from app.ui.pages.productions_page import ProductionsPage
@@ -50,6 +51,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(RecipesPage())
         self.pages.addWidget(ProductionsPage())
         self.pages.addWidget(SalesPage())
+        self.pages.addWidget(CategoriesPage())
 
         main_layout.addWidget(self.pages)
 
@@ -104,6 +106,7 @@ class MainWindow(QMainWindow):
             ("Receitas", 4),
             ("Produção", 5),
             ("Vendas", 6),
+            ("Categorias", 7),
             ("Financeiro", None),
             ("Fornecedores", None),
             ("Relatórios", None),

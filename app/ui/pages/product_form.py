@@ -1,4 +1,5 @@
-from PySide6.QtCore import Qt\nfrom PySide6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,

@@ -343,7 +343,16 @@ def get_purchase(purchase_id: int) -> dict | None:
             """
             SELECT
                 p.*,
-                s.name AS supplier_name
+                s.name AS supplier_name,
+                (
+                    SELECT MAX(reversal.occurred_at)
+                    FROM stock_movements original
+                    JOIN stock_movements reversal
+                        ON reversal.reversal_of_id = original.id
+                    WHERE original.reference_type = 'purchase'
+                      AND original.reference_id = p.id
+                      AND original.movement_type = 'purchase'
+                ) AS reversed_at
             FROM purchases p
             LEFT JOIN suppliers s ON s.id = p.supplier_id
             WHERE p.id = ?
@@ -384,7 +393,30 @@ def list_purchases(
             s.name AS supplier_name,
             COUNT(pi.id) AS item_count,
             COALESCE(SUM(pi.line_total_cents), 0) AS subtotal_cents,
-            COALESCE(SUM(pi.landed_cost_cents), 0) AS total_cost_cents
+            COALESCE(SUM(pi.landed_cost_cents), 0) AS total_cost_cents,
+            CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM stock_movements original
+                    WHERE original.reference_type = 'purchase'
+                      AND original.reference_id = p.id
+                      AND original.movement_type = 'purchase'
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM stock_movements original
+                    WHERE original.reference_type = 'purchase'
+                      AND original.reference_id = p.id
+                      AND original.movement_type = 'purchase'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM stock_movements reversal
+                          WHERE reversal.reversal_of_id = original.id
+                      )
+                )
+                THEN 1
+                ELSE 0
+            END AS is_reversed
         FROM purchases p
         LEFT JOIN suppliers s ON s.id = p.supplier_id
         LEFT JOIN purchase_items pi ON pi.purchase_id = p.id
@@ -439,9 +471,21 @@ def reverse_purchase(
 
         purchase = connection.execute(
             """
-            SELECT id
-            FROM purchases
-            WHERE id = ?
+            SELECT
+                p.*,
+                s.name AS supplier_name,
+                (
+                    SELECT MAX(reversal.occurred_at)
+                    FROM stock_movements original
+                    JOIN stock_movements reversal
+                        ON reversal.reversal_of_id = original.id
+                    WHERE original.reference_type = 'purchase'
+                      AND original.reference_id = p.id
+                      AND original.movement_type = 'purchase'
+                ) AS reversed_at
+            FROM purchases p
+            LEFT JOIN suppliers s ON s.id = p.supplier_id
+            WHERE p.id = ?
             """,
             (purchase_id,),
         ).fetchone()

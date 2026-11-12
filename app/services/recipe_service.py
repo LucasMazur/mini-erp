@@ -346,3 +346,67 @@ def list_product_recipes(product_id):
         ).fetchall()
 
         return [dict(recipe) for recipe in recipes]
+
+def list_all_recipes(search=""):
+    """Lista todas as receitas cadastradas, com seus produtos e versões."""
+
+    with get_connection() as connection:
+        recipes = connection.execute(
+            """
+            SELECT
+                r.id,
+                r.product_id,
+                r.name,
+                r.is_default,
+                r.active,
+                p.name AS product_name,
+                v.version_number,
+                v.finalized_at
+            FROM product_recipes r
+            JOIN products p ON p.id = r.product_id
+            LEFT JOIN recipe_versions v
+                ON v.id = (
+                    SELECT rv.id
+                    FROM recipe_versions rv
+                    WHERE rv.recipe_id = r.id
+                    ORDER BY rv.version_number DESC
+                    LIMIT 1
+                )
+            WHERE
+                r.name LIKE ?
+                OR p.name LIKE ?
+            ORDER BY p.name, r.is_default DESC, r.name
+            """,
+            (f"%{search}%", f"%{search}%"),
+        ).fetchall()
+
+        return [dict(recipe) for recipe in recipes]
+
+def list_material_compatible_units(material_id):
+    """Lista unidades ativas compatíveis com o material."""
+
+    with get_connection() as connection:
+        material = connection.execute(
+            """
+            SELECT u.dimension
+            FROM materials m
+            JOIN units u ON u.id = m.stock_unit_id
+            WHERE m.id = ? AND m.active = 1
+            """,
+            (material_id,),
+        ).fetchone()
+
+        if material is None:
+            raise ValueError("Material não encontrado ou inativo.")
+
+        units = connection.execute(
+            """
+            SELECT id, name, symbol, dimension
+            FROM units
+            WHERE dimension = ? AND active = 1
+            ORDER BY name
+            """,
+            (material["dimension"],),
+        ).fetchall()
+
+        return [dict(unit) for unit in units]

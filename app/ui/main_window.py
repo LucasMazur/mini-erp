@@ -15,7 +15,7 @@ from app.ui.pages.dashboard_page import DashboardPage
 from app.ui.pages.materials_page import MaterialsPage
 from app.ui.pages.products_page import ProductsPage
 from app.ui.pages.purchases_page import PurchasesPage
-
+from app.ui.pages.recipes_page import RecipesPage
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(ProductsPage())
         self.pages.addWidget(MaterialsPage())
         self.pages.addWidget(PurchasesPage())
+        self.pages.addWidget(RecipesPage())
 
         main_layout.addWidget(self.pages)
 
@@ -96,7 +97,7 @@ class MainWindow(QMainWindow):
             ("Produtos", 1),
             ("Materiais", 2),
             ("Compras", 3),
-            ("Receitas", None),
+            ("Receitas", 4),
             ("Produção", None),
             ("Vendas", None),
             ("Financeiro", None),

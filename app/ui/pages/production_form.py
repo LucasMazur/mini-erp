@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -194,10 +194,6 @@ class ProductionForm(QDialog):
         try:
             cost = calculate_recipe_cost(recipe_id, version_number)
             total_cost = cost["total_cost_cents"] * quantity
-            cost_by_material = {
-                item["material_id"]: item["cost_cents"] * quantity
-                for item in cost["items"]
-            }
         except ValueError:
             total_cost = 0
             cost_by_material = {}
@@ -215,9 +211,9 @@ class ProductionForm(QDialog):
                 cell = QTableWidgetItem(str(value))
                 if column == 4:
                     cell.setForeground(
-                        Qt.GlobalColor.darkGreen
+                        QColor("#187443")
                         if item["sufficient"]
-                        else Qt.GlobalColor.red
+                        else QColor("#B42318")
                     )
                 self.materials_table.setItem(row, column, cell)
 

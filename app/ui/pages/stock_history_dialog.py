@@ -52,8 +52,9 @@ class StockHistoryDialog(QDialog):
         title.setObjectName("page_title")
         layout.addWidget(title)
 
+        item_label = "Material" if self.item_type == "material" else "Produto"
         subtitle = QLabel(
-            f"Material: {self.item['name']}"
+            f"{item_label}: {self.item['name']}"
         )
         subtitle.setObjectName("page_subtitle")
         layout.addWidget(subtitle)

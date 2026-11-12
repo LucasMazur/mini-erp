@@ -374,46 +374,6 @@ def initialize_database() -> None:
             """,
         ],
         
-        10: [
-            """
-            CREATE TABLE sales (
-                id INTEGER PRIMARY KEY,
-                sale_date TEXT NOT NULL,
-                subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),
-                discount_cents INTEGER NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
-                total_cents INTEGER NOT NULL CHECK (total_cents >= 0),
-                payment_method TEXT NOT NULL,
-                notes TEXT,
-                reversed_at TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-            """,
-            """
-            CREATE TABLE sale_items (
-                id INTEGER PRIMARY KEY,
-                sale_id INTEGER NOT NULL,
-                product_id INTEGER NOT NULL,
-                quantity_milli INTEGER NOT NULL CHECK (quantity_milli > 0),
-                unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
-                line_total_cents INTEGER NOT NULL CHECK (line_total_cents >= 0),
-                product_name_snapshot TEXT NOT NULL,
-                unit_symbol_snapshot TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE RESTRICT,
-                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
-            )
-            """,
-            """
-            CREATE INDEX idx_sales_date ON sales(sale_date, id)
-            """,
-            """
-            CREATE INDEX idx_sale_items_sale ON sale_items(sale_id)
-            """,
-            """
-            CREATE INDEX idx_sale_items_product ON sale_items(product_id)
-            """,
-        ],
-
         9: [
             """
             CREATE TABLE productions (
@@ -488,6 +448,45 @@ def initialize_database() -> None:
             ON production_items(material_id)
             """,
         ],
+        10: [
+            """
+            CREATE TABLE sales (
+                id INTEGER PRIMARY KEY,
+                sale_date TEXT NOT NULL,
+                subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),
+                discount_cents INTEGER NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
+                total_cents INTEGER NOT NULL CHECK (total_cents >= 0),
+                payment_method TEXT NOT NULL,
+                notes TEXT,
+                reversed_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            CREATE TABLE sale_items (
+                id INTEGER PRIMARY KEY,
+                sale_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                quantity_milli INTEGER NOT NULL CHECK (quantity_milli > 0),
+                unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
+                line_total_cents INTEGER NOT NULL CHECK (line_total_cents >= 0),
+                product_name_snapshot TEXT NOT NULL,
+                unit_symbol_snapshot TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE RESTRICT,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE INDEX idx_sales_date ON sales(sale_date, id)
+            """,
+            """
+            CREATE INDEX idx_sale_items_sale ON sale_items(sale_id)
+            """,
+            """
+            CREATE INDEX idx_sale_items_product ON sale_items(product_id)
+            """,
+        ],,
 
     }
 

@@ -1,4 +1,4 @@
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
@@ -103,9 +103,7 @@ class SaleForm(QDialog):
 
         self.total_label = QLabel("Total: R$ 0,00")
         self.total_label.setObjectName("page_title")
-        self.total_label.setAlignment(
-            self.total_label.alignment() | 0x2
-        )
+        self.total_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.total_label)
 
         self.notes_input = QTextEdit()
@@ -131,7 +129,6 @@ class SaleForm(QDialog):
         self.products = {}
         for product in list_products():
             self.products[product["id"]] = product
-            price = (product["sale_price_cents"] or 0) / 100
             self.product_combo.addItem(
                 f'{product["code"] or ""} {product["name"]} '
                 f'({product["unit_symbol"]})',

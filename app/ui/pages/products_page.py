@@ -18,6 +18,7 @@ from app.services.product_service import (
     list_products,
 )
 from app.ui.pages.product_form import ProductForm
+from app.ui.pages.stock_history_dialog import StockHistoryDialog
 
 
 class ProductsPage(QWidget):
@@ -69,6 +70,11 @@ class ProductsPage(QWidget):
             self.deactivate_selected_product
         )
         actions.addWidget(self.deactivate_button)
+
+        self.history_button = QPushButton("Histórico de estoque")
+        self.history_button.setEnabled(False)
+        self.history_button.clicked.connect(self.open_stock_history)
+        actions.addWidget(self.history_button)
 
         actions.addStretch()
         layout.addLayout(actions)
@@ -156,6 +162,7 @@ class ProductsPage(QWidget):
 
         self.edit_button.setEnabled(selected)
         self.deactivate_button.setEnabled(selected)
+        self.history_button.setEnabled(selected)
 
     def open_new_product(self):
         dialog = ProductForm(self)
@@ -184,6 +191,30 @@ class ProductsPage(QWidget):
 
         if dialog.exec():
             self.load_products()
+
+    def open_stock_history(self):
+        product_id = self._get_selected_product_id()
+
+        if product_id is None:
+            return
+
+        product = get_product(product_id)
+
+        if product is None:
+            QMessageBox.warning(
+                self,
+                "Produto não encontrado",
+                "Não foi possível localizar o produto.",
+            )
+            self.load_products()
+            return
+
+        dialog = StockHistoryDialog(
+            product,
+            item_type="product",
+            parent=self,
+        )
+        dialog.exec()
 
     def deactivate_selected_product(self):
         product_id = self._get_selected_product_id()

@@ -142,6 +142,13 @@ QFormLayout QLabel {
     font-weight: 600;
 }
 
+#sale_total {
+    color: #252B33;
+    font-size: 25px;
+    font-weight: 800;
+    padding-top: 8px;
+}
+
 /* ===== BOTÕES ===== */
 
 QPushButton {

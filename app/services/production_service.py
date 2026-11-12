@@ -409,3 +409,26 @@ def register_production(
 
     finally:
         connection.close()
+
+
+def list_productions():
+    """Lista o histórico de produções, da mais recente para a mais antiga."""
+
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                product_name_snapshot,
+                recipe_name_snapshot,
+                recipe_version_number,
+                quantity_milli,
+                total_cost_cents,
+                occurred_at,
+                notes
+            FROM productions
+            ORDER BY occurred_at DESC, id DESC
+            """
+        ).fetchall()
+
+        return [dict(row) for row in rows]

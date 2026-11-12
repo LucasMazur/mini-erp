@@ -158,6 +158,12 @@ QPushButton:disabled {
     background-color: #20262E;
 }
 
+#primary_button:disabled {
+    background-color: #E5E7EB;
+    color: #9AA1AA;
+    border: 1px solid #D1D5DB;
+}
+
 /* ===== CAMPOS DE TEXTO ===== */
 
 QLineEdit,

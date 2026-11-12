@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (
+from PySide6.QtCore import Qt\nfrom PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
@@ -27,8 +27,8 @@ class ProductForm(QDialog):
         super().__init__(parent)
         self.product = product
         self.setWindowTitle("Editar produto" if product else "Novo produto")
-        self.resize(620, 650)
-        self.setMinimumSize(540, 580)
+        self.resize(620, 560)
+        self.setMinimumSize(480, 420)
         self._create_interface()
         self._load_options()
 
@@ -62,9 +62,23 @@ class ProductForm(QDialog):
         return card, card_layout
 
     def _create_interface(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 26, 28, 24)
-        layout.setSpacing(16)
+        from PySide6.QtWidgets import QScrollArea, QWidget
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(22, 18, 22, 18)
+        root.setSpacing(12)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(4, 4, 10, 12)
+        layout.setSpacing(12)
 
         title = QLabel("Editar produto" if self.product else "Novo produto")
         title.setObjectName("page_title")
@@ -77,12 +91,12 @@ class ProductForm(QDialog):
         layout.addWidget(subtitle)
 
         identity_card, identity_layout = self._create_card(
-            "Identificação", "Informações básicas para localizar o produto no estoque."
+            "Identificação",
+            "Informações básicas para localizar o produto no estoque.",
         )
         identity_form = QFormLayout()
-        identity_form.setLabelAlignment(identity_form.labelAlignment())
-        identity_form.setHorizontalSpacing(18)
-        identity_form.setVerticalSpacing(12)
+        identity_form.setHorizontalSpacing(14)
+        identity_form.setVerticalSpacing(8)
 
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Ex.: Brinco Gato Lua")
@@ -102,9 +116,12 @@ class ProductForm(QDialog):
         layout.addWidget(identity_card)
 
         price_card, price_layout = self._create_card(
-            "Preço de venda", "Este valor será sugerido automaticamente ao registrar uma venda."
+            "Preço de venda",
+            "Este valor será sugerido automaticamente ao registrar uma venda.",
         )
-        self.price_checkbox = QCheckBox("Definir preço padrão para este produto")
+        self.price_checkbox = QCheckBox(
+            "Definir preço padrão para este produto"
+        )
         price_layout.addWidget(self.price_checkbox)
 
         self.price_input = QDoubleSpinBox()
@@ -112,12 +129,13 @@ class ProductForm(QDialog):
         self.price_input.setMinimum(0)
         self.price_input.setMaximum(999999999)
         self.price_input.setPrefix("R$ ")
-        self.price_input.setMinimumHeight(44)
+        self.price_input.setMinimumHeight(38)
         self.price_input.setEnabled(False)
         price_layout.addWidget(self.price_input)
 
         self.price_hint = QLabel(
-            "O preço poderá ser ajustado individualmente durante uma venda, sem alterar este cadastro."
+            "O preço poderá ser ajustado individualmente durante uma venda, "
+            "sem alterar este cadastro."
         )
         self.price_hint.setObjectName("form_section_hint")
         self.price_hint.setWordWrap(True)
@@ -129,25 +147,31 @@ class ProductForm(QDialog):
             "Observações", "Detalhes internos opcionais sobre o produto."
         )
         self.notes_input = QTextEdit()
-        self.notes_input.setPlaceholderText("Adicione informações relevantes...")
-        self.notes_input.setMinimumHeight(70)
-        self.notes_input.setMaximumHeight(95)
+        self.notes_input.setPlaceholderText(
+            "Adicione informações relevantes..."
+        )
+        self.notes_input.setMinimumHeight(55)
+        self.notes_input.setMaximumHeight(75)
         notes_layout.addWidget(self.notes_input)
         layout.addWidget(notes_card)
+        layout.addStretch()
 
-        buttons = QHBoxLayout()
-        buttons.addStretch()
+        scroll.setWidget(content)
+        root.addWidget(scroll, 1)
+
+        footer = QHBoxLayout()
+        footer.addStretch()
         cancel_button = QPushButton("Cancelar")
         cancel_button.clicked.connect(self.reject)
-        buttons.addWidget(cancel_button)
+        footer.addWidget(cancel_button)
 
         save_button = QPushButton(
             "Salvar alterações" if self.product else "Cadastrar produto"
         )
         save_button.setObjectName("primary_button")
         save_button.clicked.connect(self._save_product)
-        buttons.addWidget(save_button)
-        layout.addLayout(buttons)
+        footer.addWidget(save_button)
+        root.addLayout(footer)
 
     def _load_options(self):
         with get_connection() as connection:

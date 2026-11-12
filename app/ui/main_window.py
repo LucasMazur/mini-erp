@@ -138,5 +138,10 @@ class MainWindow(QMainWindow):
     def _navigate_to(self, index):
         self.pages.setCurrentIndex(index)
 
+        page = self.pages.widget(index)
+        refresh = getattr(page, "refresh_data", None)
+        if callable(refresh):
+            refresh()
+
         for page_index, button in self.menu_buttons.items():
             button.setChecked(page_index == index)

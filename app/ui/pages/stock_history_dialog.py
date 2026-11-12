@@ -28,7 +28,7 @@ MOVEMENT_LABELS = {
 
 
 class StockHistoryDialog(QDialog):
-    def __init__(self, item, item_type=self.item_type, parent=None):
+    def __init__(self, item, item_type="material", parent=None):
         super().__init__(parent)
 
         self.item = item

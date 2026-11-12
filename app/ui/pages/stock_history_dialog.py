@@ -28,13 +28,14 @@ MOVEMENT_LABELS = {
 
 
 class StockHistoryDialog(QDialog):
-    def __init__(self, material, parent=None):
+    def __init__(self, item, item_type=self.item_type, parent=None):
         super().__init__(parent)
 
-        self.material = material
+        self.item = item
+        self.item_type = item_type
 
         self.setWindowTitle(
-            f"Histórico de estoque - {material['name']}"
+            f"Histórico de estoque - {item['name']}"
         )
         self.resize(1050, 650)
         self.setMinimumSize(800, 450)
@@ -52,7 +53,7 @@ class StockHistoryDialog(QDialog):
         layout.addWidget(title)
 
         subtitle = QLabel(
-            f"Material: {self.material['name']}"
+            f"Material: {self.item['name']}"
         )
         subtitle.setObjectName("page_subtitle")
         layout.addWidget(subtitle)
@@ -111,8 +112,8 @@ class StockHistoryDialog(QDialog):
 
     def _create_summary(self, layout):
         valuation = get_stock_valuation(
-            "material",
-            self.material["id"],
+            self.item_type,
+            self.item["id"],
         )
 
         quantity = valuation["quantity_milli"]
@@ -129,7 +130,7 @@ class StockHistoryDialog(QDialog):
             "Saldo atual",
             (
                 f"{self._format_quantity(quantity)} "
-                f"{self.material['unit_symbol']}"
+                f"{self.item['unit_symbol']}"
             ),
         )
 
@@ -142,7 +143,7 @@ class StockHistoryDialog(QDialog):
         self._add_summary_card(
             summary_layout,
             "Custo médio por "
-            f"{self.material['unit_symbol']}",
+            f"{self.item['unit_symbol']}",
             self._format_currency(
                 round(average_cost)
             ),
@@ -172,8 +173,8 @@ class StockHistoryDialog(QDialog):
 
     def load_movements(self):
         movements = list_stock_movements(
-            "material",
-            self.material["id"],
+            self.item_type,
+            self.item["id"],
         )
 
         self.table.setRowCount(len(movements))

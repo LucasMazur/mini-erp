@@ -114,6 +114,34 @@ QMainWindow {
     font-weight: 700;
 }
 
+/* ===== FORMULÁRIOS MODERNOS ===== */
+
+#form_card {
+    background-color: #FFFFFF;
+    border: 1px solid #E1E5EA;
+    border-radius: 12px;
+}
+
+#form_section_title {
+    color: #303842;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+#form_section_hint {
+    color: #87919D;
+    font-size: 11px;
+}
+
+QDialog {
+    background-color: #F4F6F8;
+}
+
+QFormLayout QLabel {
+    color: #586270;
+    font-weight: 600;
+}
+
 /* ===== BOTÕES ===== */
 
 QPushButton {

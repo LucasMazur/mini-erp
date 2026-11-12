@@ -214,7 +214,7 @@ def finalize_recipe_version(recipe_id):
         return version["id"]
 
 def create_recipe_version(recipe_id, notes=None):
-    """Cria uma nova versão copiando os materiais da versão anterior."""
+    """Cria uma nova versão vazia após finalizar a versão anterior."""
 
     with get_connection() as connection:
         previous_version = connection.execute(
@@ -248,30 +248,7 @@ def create_recipe_version(recipe_id, notes=None):
             (recipe_id, new_version_number, notes),
         )
 
-        new_version_id = cursor.lastrowid
-
-        connection.execute(
-            """
-            INSERT INTO recipe_items (
-                recipe_version_id,
-                material_id,
-                quantity_milli,
-                material_name_snapshot,
-                unit_symbol_snapshot
-            )
-            SELECT
-                ?,
-                material_id,
-                quantity_milli,
-                material_name_snapshot,
-                unit_symbol_snapshot
-            FROM recipe_items
-            WHERE recipe_version_id = ?
-            """,
-            (new_version_id, previous_version["id"]),
-        )
-
-        return new_version_id
+        return cursor.lastrowid
 
 def get_recipe(recipe_id):
     """Retorna uma receita com todas as suas versões e materiais."""

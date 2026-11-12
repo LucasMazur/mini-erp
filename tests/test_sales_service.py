@@ -71,16 +71,17 @@ def sales_db(tmp_path, monkeypatch):
             VALUES (1, 'Brinco Lua', 1);
         """)
 
-    stock_service._register_stock_movement(
-        get_test_connection(),
-        "product",
-        1,
-        "production_output",
-        50000,
-        reference_type="production",
-        reference_id=1,
-        value_cents=4450,
-    )
+    with get_test_connection() as connection:
+        stock_service._register_stock_movement(
+            connection,
+            "product",
+            1,
+            "production_output",
+            50000,
+            reference_type="production",
+            reference_id=1,
+            value_cents=4450,
+        )
     return get_test_connection
 
 

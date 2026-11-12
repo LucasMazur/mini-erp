@@ -388,7 +388,7 @@ def test_cannot_finalize_recipe_twice(test_db):
     with pytest.raises(ValueError, match="finalizada"):
         recipe_service.finalize_recipe_version(recipe_id)
 
-def test_create_new_recipe_version_copies_items(test_db):
+def test_create_new_recipe_version_starts_empty(test_db):
     with test_db() as connection:
         connection.executescript("""
             CREATE TABLE units (
@@ -449,9 +449,7 @@ def test_create_new_recipe_version_copies_items(test_db):
 
     assert new_version["version_number"] == 2
     assert new_version["notes"] == "Ajuste da receita"
-    assert len(items) == 1
-    assert items[0]["material_id"] == 1
-    assert items[0]["quantity_milli"] == 4000
+    assert len(items) == 0
 
 
 def test_cannot_create_new_version_before_finalizing(test_db):
@@ -572,7 +570,7 @@ def test_get_recipe_with_versions_and_items(test_db):
     assert recipe["is_default"] == 1
     assert len(recipe["versions"]) == 2
     assert recipe["versions"][0]["items"][0]["quantity_milli"] == 4000
-    assert recipe["versions"][1]["items"][0]["quantity_milli"] == 4000
+    assert recipe["versions"][1]["items"] == []
 
 
 def test_get_nonexistent_recipe_returns_none(test_db):

@@ -152,7 +152,7 @@ def create_consignment(seller_id, dispatch_date, items, notes=None):
         if product_id in seen:
             raise ValueError("Não repita o mesmo produto na remessa.")
         seen.add(product_id)
-        normalized.append((product_id, quantity * 1000))
+        normalized.append((product_id, quantity * 1_000_000))
 
     connection = get_connection()
     try:
@@ -188,7 +188,7 @@ def create_consignment(seller_id, dispatch_date, items, notes=None):
                 balances["value_cents"], balances["quantity_milli"]
             )
             unit_cost_cents = (
-                average_cost.numerator * 1000 * 2
+                average_cost.numerator * 1_000_000 * 2
                 + average_cost.denominator
             ) // (2 * average_cost.denominator)
             products[product_id] = (dict(product), unit_cost_cents)
@@ -337,7 +337,7 @@ def register_settlement(consignment_id, settlement_date, items, notes=None):
         if item_id in seen:
             raise ValueError("Não repita o mesmo item no acerto.")
         seen.add(item_id)
-        normalized.append((item_id, quantity * 1000))
+        normalized.append((item_id, quantity * 1_000_000))
 
     connection = get_connection()
     try:
@@ -376,14 +376,14 @@ def register_settlement(consignment_id, settlement_date, items, notes=None):
                     f"Quantidade vendida maior que o saldo em loja de "
                     f"{item['product_name_snapshot']}."
                 )
-            line_total = quantity_milli * item["unit_price_cents"] // 1000
+            line_total = quantity_milli * item["unit_price_cents"] // 1_000_000
             if consignment["commission_type"] == "percentage":
                 line_commission = (
-                    line_total * consignment["commission_value"] // 10000
+                    line_total * consignment["commission_value"] // 1_000_0000
                 )
             else:
                 line_commission = (
-                    quantity_milli // 1000 * consignment["commission_value"]
+                    quantity_milli // 1_000_000 * consignment["commission_value"]
                 )
             gross += line_total
             commission += line_commission
@@ -516,7 +516,7 @@ def register_return(
         or quantity <= 0
     ):
         raise ValueError("A quantidade devolvida deve ser positiva.")
-    quantity_milli = quantity * 1000
+    quantity_milli = quantity * 1_000_000
     connection = get_connection()
     try:
         connection.execute("BEGIN IMMEDIATE")
@@ -540,7 +540,7 @@ def register_return(
         if quantity_milli > custody:
             raise ValueError("A devolução supera a quantidade ainda na loja.")
         return_value = (
-            item["unit_cost_cents_per_unit"] * quantity_milli // 1000
+            item["unit_cost_cents_per_unit"] * quantity_milli // 1_000_000
         )
         _register_stock_movement(
             connection,

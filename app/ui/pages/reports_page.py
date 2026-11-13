@@ -119,6 +119,7 @@ class ReportsPage(QWidget):
         self._create_financial_tab()
         self._create_sales_tab()
         self._create_purchases_tab()
+        self._create_stock_tab()
 
     def _create_financial_tab(self):
         tab = QWidget()
@@ -354,6 +355,164 @@ class ReportsPage(QWidget):
             "foram desconsideradas."
         )
 
+    def _create_stock_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(8, 12, 8, 8)
+        layout.setSpacing(14)
+
+        note = QLabel(
+            "Posição atual do estoque. Este painel não é limitado pelo período "
+            "selecionado nos filtros acima."
+        )
+        note.setObjectName("page_subtitle")
+        layout.addWidget(note)
+
+        cards = QHBoxLayout()
+        value_card, self.stock_value_label = self._create_card(
+            "Valor total do estoque"
+        )
+        materials_card, self.stock_material_count_label = self._create_card(
+            "Materiais cadastrados com saldo"
+        )
+        products_card, self.stock_product_count_label = self._create_card(
+            "Produtos cadastrados com saldo"
+        )
+        alert_card, self.stock_alert_count_label = self._create_card(
+            "Materiais no mínimo ou abaixo"
+        )
+        for card in (value_card, materials_card, products_card, alert_card):
+            cards.addWidget(card)
+        layout.addLayout(cards)
+
+        materials_title = QLabel("Estoque de materiais")
+        materials_title.setObjectName("section_title")
+        layout.addWidget(materials_title)
+        self.stock_materials_table = self._create_table(
+            ["Material", "Saldo atual", "Estoque mínimo", "Valor em estoque", "Situação"],
+            stretch_column=0,
+        )
+        layout.addWidget(self.stock_materials_table, 1)
+
+        products_title = QLabel("Estoque de produtos")
+        products_title.setObjectName("section_title")
+        layout.addWidget(products_title)
+        self.stock_products_table = self._create_table(
+            ["Produto", "Saldo atual", "Valor em estoque"],
+            stretch_column=0,
+        )
+        layout.addWidget(self.stock_products_table, 1)
+
+        self.stock_status = QLabel("")
+        self.stock_status.setObjectName("page_subtitle")
+        layout.addWidget(self.stock_status)
+        self.tabs.addTab(tab, "Estoque")
+
+    @staticmethod
+    def _format_quantity(quantity_milli, unit):
+        quantity = f"{quantity_milli / 1000:,.3f}".replace(
+            ",", "X"
+        ).replace(".", ",").replace("X", ".")
+        return f"{quantity} {unit}"
+
+    def _refresh_stock(self):
+        with get_connection() as connection:
+            materials = connection.execute(
+                """
+                SELECT m.name, u.symbol AS unit,
+                       COALESCE(SUM(sm.quantity_milli), 0) AS quantity,
+                       COALESCE(SUM(sm.value_cents), 0) AS value,
+                       m.minimum_stock_quantity_milli AS minimum
+                FROM materials m
+                JOIN units u ON u.id = m.stock_unit_id
+                LEFT JOIN stock_movements sm ON sm.material_id = m.id
+                WHERE m.active = 1
+                GROUP BY m.id
+                ORDER BY m.name COLLATE NOCASE
+                """
+            ).fetchall()
+            products = connection.execute(
+                """
+                SELECT p.name, u.symbol AS unit,
+                       COALESCE(SUM(sm.quantity_milli), 0) AS quantity,
+                       COALESCE(SUM(sm.value_cents), 0) AS value
+                FROM products p
+                JOIN units u ON u.id = p.stock_unit_id
+                LEFT JOIN stock_movements sm ON sm.product_id = p.id
+                WHERE p.active = 1
+                GROUP BY p.id
+                ORDER BY p.name COLLATE NOCASE
+                """
+            ).fetchall()
+
+        material_rows = [dict(row) for row in materials]
+        product_rows = [dict(row) for row in products]
+        materials_with_stock = [
+            row for row in material_rows if row["quantity"] > 0
+        ]
+        products_with_stock = [
+            row for row in product_rows if row["quantity"] > 0
+        ]
+        low_stock = [
+            row for row in material_rows
+            if row["minimum"] > 0 and row["quantity"] <= row["minimum"]
+        ]
+        total_value = sum(
+            row["value"] for row in material_rows + product_rows
+        )
+
+        self.stock_value_label.setText(self._currency(total_value))
+        self.stock_material_count_label.setText(str(len(materials_with_stock)))
+        self.stock_product_count_label.setText(str(len(products_with_stock)))
+        self.stock_alert_count_label.setText(str(len(low_stock)))
+
+        self.stock_materials_table.setRowCount(len(material_rows))
+        for row, material in enumerate(material_rows):
+            minimum = material["minimum"]
+            if minimum > 0 and material["quantity"] <= minimum:
+                status = "Repor"
+                status_color = QColor("#B42318")
+            else:
+                status = "Normal"
+                status_color = QColor("#187443")
+            values = [
+                material["name"],
+                self._format_quantity(material["quantity"], material["unit"]),
+                self._format_quantity(minimum, material["unit"]),
+                self._currency(material["value"]),
+                status,
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 4:
+                    item.setForeground(status_color)
+                if column in (1, 2, 3):
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.stock_materials_table.setItem(row, column, item)
+
+        self.stock_products_table.setRowCount(len(product_rows))
+        for row, product in enumerate(product_rows):
+            values = [
+                product["name"],
+                self._format_quantity(product["quantity"], product["unit"]),
+                self._currency(product["value"]),
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column in (1, 2):
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.stock_products_table.setItem(row, column, item)
+
+        self.stock_status.setText(
+            f"{len(material_rows)} material(is) e {len(product_rows)} produto(s) "
+            "ativo(s) analisados. O valor considera o custo registrado nos "
+            "movimentos de estoque."
+        )
+
     def _open_transaction(self, direction):
         dialog = FinancialTransactionDialog(direction, self)
         if dialog.exec():
@@ -381,6 +540,7 @@ class ReportsPage(QWidget):
         self._refresh_financial(start_date, end_date)
         self._refresh_sales(start_date, end_date)
         self._refresh_purchases(start_date, end_date)
+        self._refresh_stock()
 
     def _show_invalid_period(self):
         for label in (
@@ -398,6 +558,8 @@ class ReportsPage(QWidget):
         self.payment_table.setRowCount(0)
         self.purchase_supplier_table.setRowCount(0)
         self.purchase_material_table.setRowCount(0)
+        self.stock_materials_table.setRowCount(0)
+        self.stock_products_table.setRowCount(0)
         self.financial_status.setText(
             "A data inicial deve ser anterior à data final."
         )

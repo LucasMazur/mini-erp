@@ -330,5 +330,5 @@ class MaterialsPage(QWidget):
             self.load_materials()
             return
 
-        dialog = StockHistoryDialog(material, self)
+        dialog = StockHistoryDialog(material, item_type="material", parent=self)
         dialog.exec()

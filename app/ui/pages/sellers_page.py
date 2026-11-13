@@ -216,7 +216,7 @@ class ConsignmentDetailsDialog(QDialog):
             f"Remessa #{self.data['id']} — {self.data['seller_name']}"
         )
         self.summary.setText(
-            f"Saldo em poder da loja: {self.data['pending_cents'] / 100:,.2f} "
+            f"Valor pendente de repasse: {self.data['pending_cents'] / 100:,.2f} "
             f"a repassar".replace(",", "X").replace(".", ",").replace("X", ".")
         )
         self.table.setRowCount(len(self.data["items"]))
@@ -374,106 +374,3 @@ class SellersPage(QWidget):
         self.table.cellDoubleClicked.connect(lambda row, col: self._open_consignments())
         layout.addWidget(self.table)
 
-    def refresh_data(self, *_):
-        self.rows = list_sellers(search=self.search.text())
-        self.table.setRowCount(len(self.rows))
-        for row, seller in enumerate(self.rows):
-            if seller["commission_type"] == "percentage":
-                commission = f"{seller['commission_value'] / 100:.2f}%".replace(".", ",")
-            else:
-                commission = f"{currency(seller['commission_value'])}/peça"
-            values = [
-                seller["name"], commission,
-                str(seller["custody_quantity_milli"] // 1000),
-                currency(seller["pending_cents"]),
-                "Ativo" if seller["active"] else "Inativo",
-            ]
-            for col, value in enumerate(values):
-                cell = QTableWidgetItem(value)
-                if col == 0:
-                    cell.setData(Qt.ItemDataRole.UserRole, seller["id"])
-                self.table.setItem(row, col, cell)
-        self._update_actions()
-
-    def _selected_seller(self):
-        row = self.table.currentRow()
-        return self.rows[row] if 0 <= row < len(self.rows) else None
-
-    def _update_actions(self):
-        enabled = self._selected_seller() is not None
-        for button in (self.dispatch, self.details, self.edit):
-            button.setEnabled(enabled)
-
-    def _new_seller(self):
-        if SellerForm(self).exec():
-            self.refresh_data()
-
-    def _new_consignment(self):
-        seller = self._selected_seller()
-        if seller and ConsignmentForm(seller["id"], self).exec():
-            self.refresh_data()
-
-    def _open_consignments(self):
-        seller = self._selected_seller()
-        if not seller:
-            return
-        consignments = list_consignments(seller["id"])
-        if not consignments:
-            QMessageBox.information(self, "Sem remessas", "Essa loja ainda não possui remessas.")
-            return
-        options = [
-            f"#{item['id']} — {item['dispatch_date']} — "
-            f"{item['custody_milli'] // 1000} peça(s) na loja"
-            for item in consignments
-        ]
-        selected, ok = QInputDialog.getItem(
-            self, "Remessas da loja", "Selecione a remessa:", options, 0, False
-        )
-        if not ok:
-            return
-        index = options.index(selected)
-        ConsignmentDetailsDialog(consignments[index]["id"], self).exec()
-        self.refresh_data()
-
-    def _edit_commission(self):
-        seller = self._selected_seller()
-        if not seller:
-            return
-        is_percentage = seller["commission_type"] == "percentage"
-        current = (
-            seller["commission_value"] / 100
-            if is_percentage else seller["commission_value"] / 100
-        )
-        value, ok = QInputDialog.getDouble(
-            self, "Editar comissão", "Comissão (%):" if is_percentage
-            else "Comissão fixa por peça (R$):",
-            current, 0, 100 if is_percentage else 1000000, 2,
-        )
-        if not ok:
-            return
-        try:
-            update_seller(seller["id"], commission_value=round(value * 100))
-        except ValueError as error:
-            QMessageBox.warning(self, "Não foi possível atualizar", str(error))
-        self.refresh_data()
-
-    def refresh_data(self):
-        self.rows = list_sellers(search=self.search.text())
-        self.table.setRowCount(len(self.rows))
-        for row, seller in enumerate(self.rows):
-            if seller["commission_type"] == "percentage":
-                commission = f"{seller['commission_value'] / 100:.2f}%".replace(".", ",")
-            else:
-                commission = f"{currency(seller['commission_value'])}/peça"
-            values = [
-                seller["name"], commission,
-                str(seller["custody_quantity_milli"] // 1000),
-                currency(seller["pending_cents"]),
-                "Ativo" if seller["active"] else "Inativo",
-            ]
-            for col, value in enumerate(values):
-                cell = QTableWidgetItem(value)
-                if col == 0:
-                    cell.setData(Qt.ItemDataRole.UserRole, seller["id"])
-                self.table.setItem(row, col, cell)
-        self._update_actions()

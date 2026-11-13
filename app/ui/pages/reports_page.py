@@ -3,6 +3,7 @@ from collections import defaultdict
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QComboBox,
     QDateEdit,
     QFrame,
     QHBoxLayout,
@@ -20,6 +21,7 @@ from app.services.financial_service import (
     list_transactions,
 )
 from app.services.sales_service import get_sales_report
+from app.ui.pages.financial_transaction_dialog import FinancialTransactionDialog
 
 
 class ReportsPage(QWidget):
@@ -130,9 +132,40 @@ class ReportsPage(QWidget):
         cards.addWidget(balance_card)
         layout.addLayout(cards)
 
-        section = QLabel("Movimentações por categoria")
+        actions = QHBoxLayout()
+        actions.addStretch()
+        income_button = QPushButton("+ Nova receita")
+        income_button.setObjectName("primary_button")
+        income_button.clicked.connect(lambda: self._open_transaction("income"))
+        actions.addWidget(income_button)
+        expense_button = QPushButton("+ Nova despesa")
+        expense_button.clicked.connect(lambda: self._open_transaction("expense"))
+        actions.addWidget(expense_button)
+        layout.addLayout(actions)
+
+        transaction_filters = QHBoxLayout()
+        transaction_filters.addWidget(QLabel("Exibir:"))
+        self.direction_filter = QComboBox()
+        self.direction_filter.addItem("Todas as movimentações", None)
+        self.direction_filter.addItem("Receitas", "income")
+        self.direction_filter.addItem("Despesas", "expense")
+        self.direction_filter.currentIndexChanged.connect(self._refresh_transactions)
+        transaction_filters.addWidget(self.direction_filter)
+        transaction_filters.addStretch()
+        layout.addLayout(transaction_filters)
+
+        section = QLabel("Lançamentos financeiros")
         section.setObjectName("section_title")
         layout.addWidget(section)
+        self.transactions_table = self._create_table(
+            ["Data", "Descrição", "Categoria", "Tipo", "Forma de pagamento", "Valor"],
+            stretch_column=1,
+        )
+        layout.addWidget(self.transactions_table, 1)
+
+        category_section = QLabel("Resumo por categoria")
+        category_section.setObjectName("section_title")
+        layout.addWidget(category_section)
         self.category_table = self._create_table(
             ["Categoria", "Tipo", "Quantidade de lançamentos", "Valor total"]
         )
@@ -181,6 +214,17 @@ class ReportsPage(QWidget):
         layout.addWidget(self.sales_status)
         self.tabs.addTab(tab, "Vendas")
 
+    def _open_transaction(self, direction):
+        dialog = FinancialTransactionDialog(direction, self)
+        if dialog.exec():
+            self.refresh_data()
+
+    def _refresh_transactions(self):
+        start_date = self._iso_date(self.start_date.date())
+        end_date = self._iso_date(self.end_date.date())
+        if start_date <= end_date:
+            self._populate_transactions(start_date, end_date)
+
     def _current_month(self):
         today = QDate.currentDate()
         self.start_date.setDate(today.addDays(1 - today.day()))
@@ -208,6 +252,7 @@ class ReportsPage(QWidget):
         self.sales_count_value.setText("—")
         self.units_sold_value.setText("—")
         self.category_table.setRowCount(0)
+        self.transactions_table.setRowCount(0)
         self.products_table.setRowCount(0)
         self.payment_table.setRowCount(0)
         self.financial_status.setText(
@@ -227,6 +272,8 @@ class ReportsPage(QWidget):
             "color: #187443;" if summary["balance_cents"] >= 0
             else "color: #B42318;"
         )
+
+        self._populate_transactions(start_date, end_date)
 
         grouped = defaultdict(lambda: {"amount": 0, "count": 0})
         for transaction in transactions:
@@ -264,6 +311,37 @@ class ReportsPage(QWidget):
         self.financial_status.setText(
             f"{len(transactions)} lançamento(s) no período selecionado."
         )
+
+    def _populate_transactions(self, start_date, end_date):
+        transactions = list_transactions(
+            start_date,
+            end_date,
+            self.direction_filter.currentData(),
+        )
+        self.transactions_table.setRowCount(len(transactions))
+        for row, transaction in enumerate(transactions):
+            date = transaction["transaction_date"]
+            formatted_date = f"{date[8:10]}/{date[5:7]}/{date[:4]}"
+            is_income = transaction["direction"] == "income"
+            values = [
+                formatted_date,
+                transaction["description"],
+                transaction["category"] or "—",
+                "Receita" if is_income else "Despesa",
+                transaction["payment_method"] or "—",
+                self._currency(transaction["amount_cents"]),
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(str(value))
+                if column in (3, 5):
+                    item.setForeground(
+                        QColor("#187443") if is_income else QColor("#B42318")
+                    )
+                if column == 5:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.transactions_table.setItem(row, column, item)
 
     def _refresh_sales(self, start_date, end_date):
         report = get_sales_report(start_date, end_date)

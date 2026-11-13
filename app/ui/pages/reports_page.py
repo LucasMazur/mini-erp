@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QScrollArea,
     QPushButton,
     QTabWidget,
     QTableWidget,
@@ -151,7 +152,14 @@ class ReportsPage(QWidget):
 
     def _create_financial_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll_area.setWidget(content)
+        outer_layout.addWidget(scroll_area)
         layout.setContentsMargins(8, 12, 8, 8)
         layout.setSpacing(14)
 
@@ -215,7 +223,14 @@ class ReportsPage(QWidget):
 
     def _create_sales_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll_area.setWidget(content)
+        outer_layout.addWidget(scroll_area)
         layout.setContentsMargins(8, 12, 8, 8)
         layout.setSpacing(14)
 
@@ -229,6 +244,13 @@ class ReportsPage(QWidget):
         cards.addWidget(count_card)
         cards.addWidget(quantity_card)
         layout.addLayout(cards)
+
+        highlights = QHBoxLayout()
+        best_product_card, self.best_selling_product_value = self._create_card(
+            "Produto mais vendido no período"
+        )
+        highlights.addWidget(best_product_card)
+        layout.addLayout(highlights)
 
         product_title = QLabel("Produtos vendidos")
         product_title.setObjectName("section_title")
@@ -261,7 +283,14 @@ class ReportsPage(QWidget):
 
     def _create_sellers_report_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll_area.setWidget(content)
+        outer_layout.addWidget(scroll_area)
         layout.setContentsMargins(8, 12, 8, 8)
         layout.setSpacing(14)
 
@@ -309,7 +338,14 @@ class ReportsPage(QWidget):
 
     def _create_purchases_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll_area.setWidget(content)
+        outer_layout.addWidget(scroll_area)
         layout.setContentsMargins(8, 12, 8, 8)
         layout.setSpacing(14)
 
@@ -451,7 +487,14 @@ class ReportsPage(QWidget):
 
     def _create_production_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll_area.setWidget(content)
+        outer_layout.addWidget(scroll_area)
         layout.setContentsMargins(8, 12, 8, 8)
         layout.setSpacing(14)
 
@@ -480,6 +523,13 @@ class ReportsPage(QWidget):
         ):
             cards.addWidget(card)
         layout.addLayout(cards)
+
+        highlights = QHBoxLayout()
+        most_used_card, self.most_used_material_value = self._create_card(
+            "Matéria-prima mais consumida no período"
+        )
+        highlights.addWidget(most_used_card)
+        layout.addLayout(highlights)
 
         products_title = QLabel("Produção por produto")
         products_title.setObjectName("section_title")
@@ -576,6 +626,16 @@ class ReportsPage(QWidget):
         )
         self.production_cost_value.setText(self._currency(total_cost))
         self.production_average_value.setText(self._currency(average_cost))
+        if material_rows:
+            most_used = max(
+                material_rows, key=lambda material: material["quantity_milli"]
+            )
+            self.most_used_material_value.setText(
+                f"{most_used['material_name']} "
+                f"({self._format_quantity(most_used['quantity_milli'], most_used['unit'])})"
+            )
+        else:
+            self.most_used_material_value.setText("Sem consumo no período")
 
         self.production_products_table.setRowCount(len(product_rows))
         for row, product in enumerate(product_rows):
@@ -625,7 +685,14 @@ class ReportsPage(QWidget):
 
     def _create_stock_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll_area.setWidget(content)
+        outer_layout.addWidget(scroll_area)
         layout.setContentsMargins(8, 12, 8, 8)
         layout.setSpacing(14)
 
@@ -1052,6 +1119,18 @@ class ReportsPage(QWidget):
         )
 
         products = report["by_product"]
+        if products:
+            best_product = max(
+                products, key=lambda product: product["quantity_milli"]
+            )
+            best_quantity = best_product["quantity_milli"] / 1000
+            formatted_quantity = f"{best_quantity:,.3f}".replace(",", "X")
+            formatted_quantity = formatted_quantity.replace(".", ",").replace("X", ".")
+            self.best_selling_product_value.setText(
+                f"{best_product['product_name']} ({formatted_quantity} un.)"
+            )
+        else:
+            self.best_selling_product_value.setText("Sem vendas no período")
         self.products_table.setRowCount(len(products))
         for row, product in enumerate(products):
             quantity = product["quantity_milli"] / 1000

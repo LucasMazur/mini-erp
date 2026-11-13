@@ -92,7 +92,7 @@ class MonthlyChart(QWidget):
         font.setPointSize(11)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(0, 20, "Faturamento mensal — últimos 6 meses")
+        painter.drawText(0, 20, "Resultado financeiro mensal — últimos 6 meses")
 
         if not self.values:
             painter.setPen(QColor("#8290A0"))

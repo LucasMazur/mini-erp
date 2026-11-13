@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from app.services import recipe_service
+from app.services import recipe_service, unit_converter
 
 
 @pytest.fixture
@@ -18,6 +18,12 @@ def test_db(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         recipe_service,
+        "get_connection",
+        get_test_connection,
+    )
+
+    monkeypatch.setattr(
+        unit_converter,
         "get_connection",
         get_test_connection,
     )

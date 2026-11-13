@@ -123,7 +123,7 @@ class ProductsPage(QWidget):
             self._update_action_buttons
         )
         self.table.cellDoubleClicked.connect(
-            lambda row, column: self.edit_selected_product()
+            lambda row, column: self.open_stock_history()
         )
 
         layout.addWidget(self.table)

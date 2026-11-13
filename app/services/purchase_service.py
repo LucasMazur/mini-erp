@@ -283,6 +283,24 @@ def create_purchase(
 
         purchase_id = cursor.lastrowid
 
+        total_expense_cents = subtotal + freight_cents - discount_cents
+        if total_expense_cents > 0:
+            connection.execute(
+                """
+                INSERT INTO financial_transactions (
+                    transaction_date, direction, description,
+                    amount_cents, category, origin, reference_id
+                )
+                VALUES (?, 'expense', ?, ?, 'Compras', 'purchase', ?)
+                """,
+                (
+                    purchase_date.strip(),
+                    f"Compra #{purchase_id}",
+                    total_expense_cents,
+                    purchase_id,
+                ),
+            )
+
         for item in prepared_items:
             connection.execute(
                 """

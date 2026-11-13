@@ -148,6 +148,22 @@ def test_reverse_sale_restores_product_stock(sales_db):
     assert stock_service.get_stock_balance("product", 1) == 50000
     assert sales_service.get_sale(sale_id)["reversed_at"] is not None
 
+    with sales_db() as connection:
+        financial = connection.execute(
+            """
+            SELECT direction, amount_cents, origin
+            FROM financial_transactions
+            WHERE reference_id = ?
+            ORDER BY id
+            """,
+            (sale_id,),
+        ).fetchall()
+    assert [(row["direction"], row["amount_cents"], row["origin"])
+            for row in financial] == [
+        ("income", 4500, "sale"),
+        ("expense", 4500, "sale_reversal"),
+    ]
+
 
 def test_sale_cannot_be_reversed_twice(sales_db):
     sale_id = sales_service.create_sale(

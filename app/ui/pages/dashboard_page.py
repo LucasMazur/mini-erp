@@ -434,10 +434,10 @@ class DashboardPage(QWidget):
             ))
         self.monthly_chart.set_values(chart_values)
         self.top_products_chart.set_values([
-            (row["name"], row["quantity"] / 1000) for row in top_products
+            (row["name"], row["quantity"] / 1_000_000) for row in top_products
         ])
         self.low_stock_chart.set_values([
-            (row["name"], max(0, row["minimum_stock"] - row["current_stock"]) / 1000)
+            (row["name"], max(0, row["minimum_stock"] - row["current_stock"]) / 1_000_000)
             for row in low_stock
         ])
 

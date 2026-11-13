@@ -92,7 +92,7 @@ class MonthlyChart(QWidget):
         font.setPointSize(11)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(0, 20, "Saldo financeiro mensal — últimos 6 meses")
+        painter.drawText(0, 20, "Fluxo de caixa mensal — últimos 6 meses")
 
         if not self.values:
             painter.setPen(QColor("#8290A0"))
@@ -180,13 +180,14 @@ class DashboardPage(QWidget):
             ("Valor em estoque", "stock_value", "R$ 0,00"),
             ("Produtos com estoque", "products_stock", "0"),
             ("Materiais em atenção", "low_stock_count", "0"),
-            ("Resultado financeiro", "financial", "R$ 0,00"),
+            ("Saldo de caixa do mês", "financial", "R$ 0,00"),
+            ("Resultado operacional", "operating_result", "R$ 0,00"),
             ("Margem bruta", "gross_margin", "R$ 0,00"),
         ]
         for index, (name, key, value) in enumerate(indicators):
             card, value_label = self._create_card(name, value)
             self.value_labels[key] = value_label
-            cards_layout.addWidget(card, index // 4, index % 4)
+            cards_layout.addWidget(card, index // 3, index % 3)
         layout.addLayout(cards_layout)
 
         charts_layout = QGridLayout()
@@ -313,6 +314,18 @@ class DashboardPage(QWidget):
                 """
             ).fetchone()
 
+            operating_expenses = connection.execute(
+                """
+                SELECT COALESCE(SUM(amount_cents), 0) AS total
+                FROM financial_transactions
+                WHERE direction = 'expense'
+                  AND origin = 'manual'
+                  AND COALESCE(category, '') <> 'Compra de materiais'
+                  AND transaction_date >= date('now', 'localtime', 'start of month')
+                  AND transaction_date < date('now', 'localtime', 'start of month', '+1 month')
+                """
+            ).fetchone()
+
             monthly_rows = connection.execute(
                 """
                 SELECT strftime('%Y-%m', transaction_date) AS month,
@@ -388,6 +401,13 @@ class DashboardPage(QWidget):
         )
         self.value_labels["gross_margin"].setStyleSheet(
             "color: #187443;" if gross_profit >= 0 else "color: #B42318;"
+        )
+        operating_result = gross_profit - operating_expenses["total"]
+        self.value_labels["operating_result"].setText(
+            self._format_currency(operating_result)
+        )
+        self.value_labels["operating_result"].setStyleSheet(
+            "color: #187443;" if operating_result >= 0 else "color: #B42318;"
         )
         self.value_labels["financial"].setText(
             self._format_currency(financial["balance"])

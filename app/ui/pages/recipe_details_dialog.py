@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -14,6 +15,7 @@ from app.services.recipe_service import (
     get_recipe,
     finalize_recipe_version,
     create_recipe_version,
+    remove_recipe_item,
 )
 from app.services.recipe_cost_calculator import calculate_recipe_cost
 from app.ui.pages.recipe_item_form import RecipeItemForm
@@ -59,6 +61,10 @@ class RecipeDetailsDialog(QDialog):
         self.add_material_button.setObjectName("primary_button")
         self.add_material_button.clicked.connect(self.open_add_material)
         layout.addWidget(self.add_material_button)
+        self.remove_material_button = QPushButton("Remover material selecionado")
+        self.remove_material_button.setEnabled(False)
+        self.remove_material_button.clicked.connect(self.remove_selected_material)
+        layout.addWidget(self.remove_material_button)
         self.new_version_button = QPushButton("Criar nova versão")
         self.new_version_button.setObjectName("primary_button")
         self.new_version_button.clicked.connect(self.create_new_version)
@@ -82,6 +88,7 @@ class RecipeDetailsDialog(QDialog):
         )
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.itemSelectionChanged.connect(self._update_remove_button)
 
         layout.addWidget(self.table)
 
@@ -158,12 +165,12 @@ class RecipeDetailsDialog(QDialog):
             ]
 
             for column, value in enumerate(values):
-                self.table.setItem(
-                    row,
-                    column,
-                    QTableWidgetItem(str(value)),
-                )
+                cell = QTableWidgetItem(str(value))
+                if column == 0:
+                    cell.setData(Qt.ItemDataRole.UserRole, item["id"])
+                self.table.setItem(row, column, cell)
 
+        self._update_remove_button()
         try:
             cost = calculate_recipe_cost(
                 self.recipe_id,
@@ -208,6 +215,53 @@ class RecipeDetailsDialog(QDialog):
             .replace(".", ",")
             .replace("X", ".")
         )
+
+    def _update_remove_button(self):
+        version_number = self.version_combo.currentData()
+        version = next(
+            (
+                item for item in self.recipe["versions"]
+                if item["version_number"] == version_number
+            ),
+            None,
+        )
+        can_edit = (
+            version is not None
+            and version["finalized_at"] is None
+            and version_number == self.recipe["versions"][-1]["version_number"]
+        )
+        self.remove_material_button.setEnabled(
+            can_edit and self.table.currentRow() >= 0
+        )
+
+    def remove_selected_material(self):
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        item = self.table.item(row, 0)
+        if item is None:
+            return
+        recipe_item_id = item.data(Qt.ItemDataRole.UserRole)
+        material_name = item.text()
+        confirmation = QMessageBox.question(
+            self,
+            "Remover material",
+            f"Deseja remover '{material_name}' da versão atual da receita?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmation != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            remove_recipe_item(self.recipe_id, recipe_item_id)
+            self.recipe = get_recipe(self.recipe_id)
+            self.load_recipe_details()
+        except ValueError as error:
+            QMessageBox.warning(
+                self,
+                "Não foi possível remover",
+                str(error),
+            )
 
     def open_add_material(self):
         if not self.recipe["versions"]:
@@ -340,6 +394,10 @@ class RecipeDetailsDialog(QDialog):
 
         self.new_version_button.setEnabled(
             finalized and version_number == self.recipe["versions"][-1]["version_number"]
+        )
+        self.remove_material_button.setEnabled(
+            not finalized and version_number == self.recipe["versions"][-1]["version_number"]
+            and self.table.currentRow() >= 0
         )
 
         items = version["items"]

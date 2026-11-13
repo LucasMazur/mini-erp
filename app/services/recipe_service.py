@@ -316,7 +316,7 @@ def list_product_recipes(product_id):
             """
             SELECT *
             FROM product_recipes
-            WHERE product_id = ?
+            WHERE product_id = ? AND active = 1
             ORDER BY is_default DESC, name
             """,
             (product_id,),
@@ -350,14 +350,42 @@ def list_all_recipes(search=""):
                     LIMIT 1
                 )
             WHERE
-                r.name LIKE ?
-                OR p.name LIKE ?
+                r.active = 1
+                AND (r.name LIKE ? OR p.name LIKE ?)
             ORDER BY p.name, r.is_default DESC, r.name
             """,
             (f"%{search}%", f"%{search}%"),
         ).fetchall()
 
         return [dict(recipe) for recipe in recipes]
+
+def deactivate_recipe(recipe_id):
+    """Desativa uma receita sem apagar seu histórico ou versões."""
+    with get_connection() as connection:
+        recipe = connection.execute(
+            """
+            SELECT id, active
+            FROM product_recipes
+            WHERE id = ?
+            """,
+            (recipe_id,),
+        ).fetchone()
+
+        if recipe is None:
+            raise ValueError("Receita não encontrada.")
+
+        if not recipe["active"]:
+            raise ValueError("Esta receita já está excluída.")
+
+        connection.execute(
+            """
+            UPDATE product_recipes
+            SET active = 0, is_default = 0
+            WHERE id = ?
+            """,
+            (recipe_id,),
+        )
+
 
 def list_material_compatible_units(material_id):
     """Lista unidades ativas compatíveis com o material."""

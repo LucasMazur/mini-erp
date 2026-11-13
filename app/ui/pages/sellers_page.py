@@ -349,7 +349,7 @@ class SellersPage(QWidget):
         self.dispatch = QPushButton("Nova remessa")
         self.dispatch.setObjectName("primary_button")
         self.dispatch.clicked.connect(self._new_consignment)
-        self.details = QPushButton("Ver remessas / acertos")
+        self.details = QPushButton("Abrir remessa selecionada")
         self.details.clicked.connect(self._open_consignments)
         self.edit = QPushButton("Editar comissão")
         self.edit.clicked.connect(self._edit_commission)
@@ -371,8 +371,37 @@ class SellersPage(QWidget):
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.itemSelectionChanged.connect(self._update_actions)
-        self.table.cellDoubleClicked.connect(lambda row, col: self._open_consignments())
+        self.table.itemSelectionChanged.connect(self._refresh_consignments)
         layout.addWidget(self.table)
+
+        consignments_title = QLabel("Remessas da loja selecionada")
+        consignments_title.setObjectName("section_title")
+        layout.addWidget(consignments_title)
+        self.consignment_table = QTableWidget(0, 6)
+        self.consignment_table.setHorizontalHeaderLabels([
+            "Data", "Peças enviadas", "Vendidas", "Na loja",
+            "A receber", "Situação"
+        ])
+        self.consignment_table.horizontalHeader().setSectionResizeMode(
+            0, self.consignment_table.horizontalHeader().ResizeMode.ResizeToContents
+        )
+        for col in range(1, 6):
+            self.consignment_table.horizontalHeader().setSectionResizeMode(
+                col, self.consignment_table.horizontalHeader().ResizeMode.ResizeToContents
+            )
+        self.consignment_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+        self.consignment_table.setSelectionMode(
+            QTableWidget.SelectionMode.SingleSelection
+        )
+        self.consignment_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers
+        )
+        self.consignment_table.cellDoubleClicked.connect(
+            lambda row, col: self._open_consignments()
+        )
+        layout.addWidget(self.consignment_table, 1)
 
 
     def refresh_data(self, *_):
@@ -400,6 +429,38 @@ class SellersPage(QWidget):
                     cell.setData(Qt.ItemDataRole.UserRole, seller["id"])
                 self.table.setItem(row, column, cell)
         self._update_actions()
+        self._refresh_consignments()
+
+    def _refresh_consignments(self, *_):
+        seller = self._selected_seller()
+        consignments = list_consignments(seller["id"]) if seller else []
+        self.consignment_rows = []
+        self.consignment_table.setRowCount(len(consignments))
+        for row, consignment in enumerate(consignments):
+            details = get_consignment(consignment["id"])
+            pending = details["pending_cents"]
+            if consignment["status"] == "closed":
+                status = "Encerrada"
+            elif pending > 0:
+                status = "Repasse pendente"
+            elif consignment["custody_milli"] > 0:
+                status = "Na loja"
+            else:
+                status = "Pronta para encerrar"
+            self.consignment_rows.append(consignment)
+            values = [
+                consignment["dispatch_date"],
+                str(consignment["delivered_milli"] // 1000),
+                str(consignment["sold_milli"] // 1000),
+                str(consignment["custody_milli"] // 1000),
+                currency(pending),
+                status,
+            ]
+            for column, value in enumerate(values):
+                cell = QTableWidgetItem(str(value))
+                if column == 0:
+                    cell.setData(Qt.ItemDataRole.UserRole, consignment["id"])
+                self.consignment_table.setItem(row, column, cell)
 
     def _selected_seller(self):
         row = self.table.currentRow()
@@ -419,31 +480,17 @@ class SellersPage(QWidget):
         if seller and ConsignmentForm(seller["id"], self).exec():
             self.refresh_data()
 
-    def _open_consignments(self):
-        seller = self._selected_seller()
-        if not seller:
-            return
-        consignments = list_consignments(seller["id"])
-        if not consignments:
+    def _open_consignments(self, *_):
+        row = self.consignment_table.currentRow()
+        if row < 0 or row >= len(getattr(self, "consignment_rows", [])):
             QMessageBox.information(
-                self, "Sem remessas",
-                "Essa loja ainda não possui remessas.",
+                self, "Selecione uma remessa",
+                "Selecione uma remessa na tabela abaixo para registrar venda, "
+                "devolução ou repasse.",
             )
             return
-        options = [
-            f"#{item['id']} — {item['dispatch_date']} — "
-            f"{item['custody_milli'] // 1000} peça(s) na loja"
-            for item in consignments
-        ]
-        selected, ok = QInputDialog.getItem(
-            self, "Remessas da loja", "Selecione a remessa:",
-            options, 0, False,
-        )
-        if not ok:
-            return
-        index = options.index(selected)
         ConsignmentDetailsDialog(
-            consignments[index]["id"], self
+            self.consignment_rows[row]["id"], self
         ).exec()
         self.refresh_data()
 

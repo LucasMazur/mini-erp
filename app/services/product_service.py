@@ -2,6 +2,9 @@
 from app.database.connection import get_connection
 
 
+_UNSET = object()
+
+
 def generate_next_product_code():
     """Gera o próximo código numérico de quatro dígitos."""
 
@@ -73,6 +76,7 @@ def create_product(
     category_id=None,
     sale_price_cents=None,
     notes=None,
+    image_path=None,
 ):
     _validate_product(name, stock_unit_id, sale_price_cents, category_id)
 
@@ -81,9 +85,9 @@ def create_product(
             """
             INSERT INTO products (
                 code, name, category_id, stock_unit_id,
-                sale_price_cents, notes
+                sale_price_cents, notes, image_path
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 code.strip() if code else None,
@@ -92,6 +96,7 @@ def create_product(
                 stock_unit_id,
                 sale_price_cents,
                 notes,
+                image_path,
             ),
         )
 
@@ -155,32 +160,59 @@ def update_product(
     category_id=None,
     sale_price_cents=None,
     notes=None,
+    image_path=_UNSET,
 ):
     _validate_product(name, stock_unit_id, sale_price_cents, category_id)
 
     with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            UPDATE products
-            SET
-                code = ?,
-                name = ?,
-                category_id = ?,
-                stock_unit_id = ?,
-                sale_price_cents = ?,
-                notes = ?
-            WHERE id = ?
-            """,
-            (
-                code.strip() if code else None,
-                name.strip(),
-                category_id,
-                stock_unit_id,
-                sale_price_cents,
-                notes,
-                product_id,
-            ),
-        )
+        if image_path is _UNSET:
+            cursor = connection.execute(
+                """
+                UPDATE products
+                SET
+                    code = ?,
+                    name = ?,
+                    category_id = ?,
+                    stock_unit_id = ?,
+                    sale_price_cents = ?,
+                    notes = ?
+                WHERE id = ?
+                """,
+                (
+                    code.strip() if code else None,
+                    name.strip(),
+                    category_id,
+                    stock_unit_id,
+                    sale_price_cents,
+                    notes,
+                    product_id,
+                ),
+            )
+        else:
+            cursor = connection.execute(
+                """
+                UPDATE products
+                SET
+                    code = ?,
+                    name = ?,
+                    category_id = ?,
+                    stock_unit_id = ?,
+                    sale_price_cents = ?,
+                    notes = ?,
+                    image_path = ?
+                WHERE id = ?
+                """,
+                (
+                    code.strip() if code else None,
+                    name.strip(),
+                    category_id,
+                    stock_unit_id,
+                    sale_price_cents,
+                    notes,
+                    image_path,
+                    product_id,
+                ),
+            )
 
         if cursor.rowcount == 0:
             raise ValueError("Produto não encontrado.")

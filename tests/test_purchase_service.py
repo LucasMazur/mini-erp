@@ -83,6 +83,19 @@ def test_db(tmp_path, monkeypatch):
                 FOREIGN KEY (unit_id) REFERENCES units(id)
             );
 
+            CREATE TABLE financial_transactions (
+                id INTEGER PRIMARY KEY,
+                transaction_date TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                description TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                payment_method TEXT,
+                category TEXT,
+                origin TEXT NOT NULL,
+                reference_id INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE stock_movements (
                 id INTEGER PRIMARY KEY,
                 material_id INTEGER,

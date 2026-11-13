@@ -218,7 +218,7 @@ class RecipeDetailsDialog(QDialog):
 
     @staticmethod
     def _format_quantity(quantity_milli):
-        quantity = quantity_milli / 1000
+        quantity = quantity_milli / 1_000_000
 
         return (
             f"{quantity:,.3f}"

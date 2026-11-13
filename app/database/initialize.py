@@ -493,6 +493,124 @@ def initialize_database() -> None:
             ADD COLUMN image_path TEXT
             """,
         ],
+        13: [
+            """
+            CREATE TABLE sellers (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                contact_name TEXT,
+                phone TEXT,
+                address TEXT,
+                commission_type TEXT NOT NULL
+                    CHECK (commission_type IN ('percentage', 'fixed')),
+                commission_value INTEGER NOT NULL
+                    CHECK (commission_value >= 0),
+                active INTEGER NOT NULL DEFAULT 1
+                    CHECK (active IN (0, 1)),
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            CREATE TABLE consignments (
+                id INTEGER PRIMARY KEY,
+                seller_id INTEGER NOT NULL,
+                dispatch_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'open'
+                    CHECK (status IN ('open', 'closed')),
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE TABLE consignment_items (
+                id INTEGER PRIMARY KEY,
+                consignment_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                product_name_snapshot TEXT NOT NULL,
+                unit_symbol_snapshot TEXT NOT NULL,
+                delivered_quantity_milli INTEGER NOT NULL
+                    CHECK (delivered_quantity_milli > 0),
+                sold_quantity_milli INTEGER NOT NULL DEFAULT 0
+                    CHECK (sold_quantity_milli >= 0),
+                returned_quantity_milli INTEGER NOT NULL DEFAULT 0
+                    CHECK (returned_quantity_milli >= 0),
+                unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
+                unit_cost_cents_per_unit INTEGER NOT NULL
+                    CHECK (unit_cost_cents_per_unit >= 0),
+                FOREIGN KEY (consignment_id)
+                    REFERENCES consignments(id) ON DELETE RESTRICT,
+                FOREIGN KEY (product_id)
+                    REFERENCES products(id) ON DELETE RESTRICT,
+                CHECK (sold_quantity_milli + returned_quantity_milli
+                       <= delivered_quantity_milli)
+            )
+            """,
+            """
+            CREATE TABLE consignment_settlements (
+                id INTEGER PRIMARY KEY,
+                consignment_id INTEGER NOT NULL,
+                settlement_date TEXT NOT NULL,
+                gross_cents INTEGER NOT NULL CHECK (gross_cents >= 0),
+                commission_cents INTEGER NOT NULL CHECK (commission_cents >= 0),
+                net_cents INTEGER NOT NULL CHECK (net_cents >= 0),
+                commission_type_snapshot TEXT NOT NULL,
+                commission_value_snapshot INTEGER NOT NULL,
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (consignment_id)
+                    REFERENCES consignments(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE TABLE consignment_settlement_items (
+                id INTEGER PRIMARY KEY,
+                settlement_id INTEGER NOT NULL,
+                consignment_item_id INTEGER NOT NULL,
+                quantity_milli INTEGER NOT NULL CHECK (quantity_milli > 0),
+                unit_price_cents INTEGER NOT NULL CHECK (unit_price_cents >= 0),
+                line_total_cents INTEGER NOT NULL CHECK (line_total_cents >= 0),
+                FOREIGN KEY (settlement_id)
+                    REFERENCES consignment_settlements(id) ON DELETE RESTRICT,
+                FOREIGN KEY (consignment_item_id)
+                    REFERENCES consignment_items(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE TABLE consignment_returns (
+                id INTEGER PRIMARY KEY,
+                consignment_id INTEGER NOT NULL,
+                consignment_item_id INTEGER NOT NULL,
+                return_date TEXT NOT NULL,
+                quantity_milli INTEGER NOT NULL CHECK (quantity_milli > 0),
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (consignment_id)
+                    REFERENCES consignments(id) ON DELETE RESTRICT,
+                FOREIGN KEY (consignment_item_id)
+                    REFERENCES consignment_items(id) ON DELETE RESTRICT
+            )
+            """,
+            """
+            CREATE TABLE consignment_payments (
+                id INTEGER PRIMARY KEY,
+                consignment_id INTEGER NOT NULL,
+                payment_date TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+                payment_method TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (consignment_id)
+                    REFERENCES consignments(id) ON DELETE RESTRICT
+            )
+            """,
+            "CREATE INDEX idx_consignments_seller ON consignments(seller_id, dispatch_date)",
+            "CREATE INDEX idx_consignment_items_product ON consignment_items(product_id)",
+            "CREATE INDEX idx_consignment_settlements_consignment ON consignment_settlements(consignment_id)",
+            "CREATE INDEX idx_consignment_payments_consignment ON consignment_payments(consignment_id, payment_date)",
+        ],
+
         12: [
             """
             CREATE TABLE financial_transactions (

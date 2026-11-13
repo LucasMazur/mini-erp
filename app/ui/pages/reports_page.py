@@ -465,7 +465,7 @@ class ReportsPage(QWidget):
         )
         self.purchase_material_table.setRowCount(len(material_rows))
         for row, ((name, unit), values) in enumerate(material_rows):
-            quantity = f"{values['quantity'] / 1000:,.3f}".replace(
+            quantity = f"{values['quantity'] / 1_000_000:,.3f}".replace(
                 ",", "X"
             ).replace(".", ",").replace("X", ".")
             cells = [
@@ -615,7 +615,7 @@ class ReportsPage(QWidget):
         total_batches = len(productions)
         total_quantity = sum(row["quantity_milli"] for row in productions)
         total_cost = sum(row["total_cost_cents"] for row in productions)
-        produced_units = total_quantity / 1000
+        produced_units = total_quantity / 1_000_000
         average_cost = (
             round(total_cost / produced_units)
             if produced_units > 0 else 0
@@ -641,7 +641,7 @@ class ReportsPage(QWidget):
 
         self.production_products_table.setRowCount(len(product_rows))
         for row, product in enumerate(product_rows):
-            quantity = product["quantity_milli"] / 1000
+            quantity = product["quantity_milli"] / 1_000_000
             values = [
                 product["product_name"],
                 str(product["batch_count"]),
@@ -660,7 +660,7 @@ class ReportsPage(QWidget):
 
         self.production_materials_table.setRowCount(len(material_rows))
         for row, material in enumerate(material_rows):
-            quantity = material["quantity_milli"] / 1000
+            quantity = material["quantity_milli"] / 1_000_000
             formatted_quantity = f"{quantity:,.3f}".replace(",", "X")
             formatted_quantity = formatted_quantity.replace(
                 ".", ","
@@ -753,7 +753,7 @@ class ReportsPage(QWidget):
 
     @staticmethod
     def _format_quantity(quantity_milli, unit):
-        quantity = f"{quantity_milli / 1000:,.3f}".replace(
+        quantity = f"{quantity_milli / 1_000_000:,.3f}".replace(
             ",", "X"
         ).replace(".", ",").replace("X", ".")
         return f"{quantity} {unit}"
@@ -924,7 +924,7 @@ class ReportsPage(QWidget):
             totals["net"] += seller["net_cents"]
             totals["paid"] += seller["paid_cents"]
             totals["pending"] += seller["pending_cents"]
-            quantity = seller["quantity_milli"] / 1000
+            quantity = seller["quantity_milli"] / 1_000_000
             values = [
                 seller["name"],
                 f"{quantity:,.3f}".replace(",", "X").replace(
@@ -1116,7 +1116,7 @@ class ReportsPage(QWidget):
         )
         self.sales_count_value.setText(str(report["sales_count"]))
         self.units_sold_value.setText(
-            f"{report['quantity_milli'] / 1000:,.3f}".replace(",", "X")
+            f"{report['quantity_milli'] / 1_000_000:,.3f}".replace(",", "X")
             .replace(".", ",").replace("X", ".")
         )
 
@@ -1125,7 +1125,7 @@ class ReportsPage(QWidget):
             best_product = max(
                 products, key=lambda product: product["quantity_milli"]
             )
-            best_quantity = best_product["quantity_milli"] / 1000
+            best_quantity = best_product["quantity_milli"] / 1_000_000
             formatted_quantity = f"{best_quantity:,.3f}".replace(",", "X")
             formatted_quantity = formatted_quantity.replace(".", ",").replace("X", ".")
             self.best_selling_product_value.setText(
@@ -1135,7 +1135,7 @@ class ReportsPage(QWidget):
             self.best_selling_product_value.setText("Sem vendas no período")
         self.products_table.setRowCount(len(products))
         for row, product in enumerate(products):
-            quantity = product["quantity_milli"] / 1000
+            quantity = product["quantity_milli"] / 1_000_000
             cells = [
                 product["product_name"],
                 f"{quantity:,.3f}".replace(",", "X").replace(

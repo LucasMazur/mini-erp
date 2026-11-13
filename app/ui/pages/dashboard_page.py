@@ -181,11 +181,12 @@ class DashboardPage(QWidget):
             ("Produtos com estoque", "products_stock", "0"),
             ("Materiais em atenção", "low_stock_count", "0"),
             ("Resultado financeiro", "financial", "R$ 0,00"),
+            ("Margem bruta", "gross_margin", "R$ 0,00"),
         ]
         for index, (name, key, value) in enumerate(indicators):
             card, value_label = self._create_card(name, value)
             self.value_labels[key] = value_label
-            cards_layout.addWidget(card, index // 3, index % 3)
+            cards_layout.addWidget(card, index // 4, index % 4)
         layout.addLayout(cards_layout)
 
         charts_layout = QGridLayout()
@@ -236,6 +237,30 @@ class DashboardPage(QWidget):
                 """
             ).fetchone()
 
+            gross_margin = connection.execute(
+                """
+                SELECT
+                    COALESCE((
+                        SELECT SUM(s.total_cents)
+                        FROM sales s
+                        WHERE s.reversed_at IS NULL
+                          AND s.sale_date >= date('now', 'localtime', 'start of month')
+                          AND s.sale_date < date('now', 'localtime', 'start of month', '+1 month')
+                    ), 0) AS revenue_cents,
+                    COALESCE((
+                        SELECT -SUM(sm.value_cents)
+                        FROM stock_movements sm
+                        JOIN sales s
+                          ON sm.reference_type = 'sale'
+                         AND sm.reference_id = s.id
+                        WHERE sm.movement_type = 'sale'
+                          AND s.reversed_at IS NULL
+                          AND s.sale_date >= date('now', 'localtime', 'start of month')
+                          AND s.sale_date < date('now', 'localtime', 'start of month', '+1 month')
+                    ), 0) AS cost_cents
+                """
+            ).fetchone()
+
             purchases = connection.execute(
                 """
                 SELECT COALESCE(SUM(amount_cents), 0) AS total
@@ -244,15 +269,6 @@ class DashboardPage(QWidget):
                   AND direction = 'expense'
                   AND transaction_date >= date('now', 'localtime', 'start of month')
                   AND transaction_date < date('now', 'localtime', 'start of month', '+1 month')
-                """
-            ).fetchone()
-
-            production_cost = connection.execute(
-                """
-                SELECT COALESCE(SUM(total_cost_cents), 0) AS total
-                FROM productions
-                WHERE occurred_at >= date('now', 'localtime', 'start of month')
-                  AND occurred_at < date('now', 'localtime', 'start of month', '+1 month')
                 """
             ).fetchone()
 
@@ -356,9 +372,22 @@ class DashboardPage(QWidget):
             "color: #B42318;" if low_stock else "color: #187443;"
         )
         self.value_labels["products_stock"].setText(str(product_stock["total"]))
-        self.value_labels["productions"].setText(str(productions["total"]))
         self.value_labels["productions"].setText(
             f"{productions['total']} lotes"
+        )
+        gross_profit = (
+            gross_margin["revenue_cents"] - gross_margin["cost_cents"]
+        )
+        margin_percent = (
+            gross_profit / gross_margin["revenue_cents"] * 100
+            if gross_margin["revenue_cents"] > 0 else 0
+        )
+        self.value_labels["gross_margin"].setText(
+            f"{self._format_currency(gross_profit)} ({margin_percent:.1f}%)"
+            .replace(".", ",")
+        )
+        self.value_labels["gross_margin"].setStyleSheet(
+            "color: #187443;" if gross_profit >= 0 else "color: #B42318;"
         )
         self.value_labels["financial"].setText(
             self._format_currency(financial["balance"])

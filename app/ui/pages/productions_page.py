@@ -88,7 +88,7 @@ class ProductionsPage(QWidget):
             else:
                 date_text = "-"
 
-            quantity = production["quantity_milli"] // 1000
+            quantity = production["quantity_milli"] // 1_000_000
             values = [
                 date_text,
                 production["product_name_snapshot"],

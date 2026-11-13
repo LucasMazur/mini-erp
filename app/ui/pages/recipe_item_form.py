@@ -39,8 +39,8 @@ class RecipeItemForm(QDialog):
         form.addRow("Material:", self.material_combo)
 
         self.quantity_input = QDoubleSpinBox()
-        self.quantity_input.setDecimals(3)
-        self.quantity_input.setMinimum(0.001)
+        self.quantity_input.setDecimals(6)
+        self.quantity_input.setMinimum(0.000001)
         self.quantity_input.setMaximum(999999999)
         self.quantity_input.setValue(1)
         form.addRow("Quantidade:", self.quantity_input)

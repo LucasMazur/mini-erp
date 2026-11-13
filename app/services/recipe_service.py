@@ -142,7 +142,7 @@ def add_recipe_item(recipe_id, material_id, quantity, unit_symbol):
             stock_unit,
         )
 
-        quantity_milli = converted_quantity * 1000
+        quantity_milli = converted_quantity * 1_000_000
 
         if quantity_milli.denominator != 1:
             raise ValueError(

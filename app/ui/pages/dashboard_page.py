@@ -92,7 +92,7 @@ class MonthlyChart(QWidget):
         font.setPointSize(11)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(0, 20, "Resultado financeiro mensal — últimos 6 meses")
+        painter.drawText(0, 20, "Saldo financeiro mensal — últimos 6 meses")
 
         if not self.values:
             painter.setPen(QColor("#8290A0"))
@@ -102,18 +102,21 @@ class MonthlyChart(QWidget):
         left, right, top, bottom = 42, 12, 45, 35
         chart_width = max(1, self.width() - left - right)
         chart_height = max(1, self.height() - top - bottom)
-        maximum = max(value for _, value in self.values) or 1
+        maximum = max(abs(value) for _, value in self.values) or 1
+        zero_y = top + chart_height / 2
 
         painter.setPen(QPen(QColor("#DCE2E8"), 1))
-        for step in range(4):
-            y = top + chart_height * step / 3
+        for step in range(5):
+            y = top + chart_height * step / 4
             painter.drawLine(int(left), int(y), int(left + chart_width), int(y))
+        painter.setPen(QPen(QColor("#9AA6B2"), 1, Qt.PenStyle.DashLine))
+        painter.drawLine(int(left), int(zero_y), int(left + chart_width), int(zero_y))
 
         count = len(self.values)
         points = []
         for index, (month, value) in enumerate(self.values):
             x = left + chart_width * (index + 0.5) / count
-            y = top + chart_height * (1 - value / maximum)
+            y = zero_y - (value / maximum) * (chart_height / 2)
             points.append((x, y))
             painter.setPen(QColor("#526B86"))
             painter.drawText(
@@ -172,14 +175,17 @@ class DashboardPage(QWidget):
         cards_layout.setSpacing(14)
         indicators = [
             ("Vendas do mês", "sales_month", "R$ 0,00"),
-            ("Produtos com estoque", "products_stock", "0"),
+            ("Compras do mês", "purchases_month", "R$ 0,00"),
             ("Produções no mês", "productions", "0"),
+            ("Valor em estoque", "stock_value", "R$ 0,00"),
+            ("Produtos com estoque", "products_stock", "0"),
+            ("Materiais em atenção", "low_stock_count", "0"),
             ("Resultado financeiro", "financial", "R$ 0,00"),
         ]
         for index, (name, key, value) in enumerate(indicators):
             card, value_label = self._create_card(name, value)
             self.value_labels[key] = value_label
-            cards_layout.addWidget(card, index // 2, index % 2)
+            cards_layout.addWidget(card, index // 3, index % 3)
         layout.addLayout(cards_layout)
 
         charts_layout = QGridLayout()
@@ -227,6 +233,33 @@ class DashboardPage(QWidget):
                 WHERE reversed_at IS NULL
                   AND sale_date >= date('now', 'localtime', 'start of month')
                   AND sale_date < date('now', 'localtime', 'start of month', '+1 month')
+                """
+            ).fetchone()
+
+            purchases = connection.execute(
+                """
+                SELECT COALESCE(SUM(amount_cents), 0) AS total
+                FROM financial_transactions
+                WHERE origin = 'purchase'
+                  AND direction = 'expense'
+                  AND transaction_date >= date('now', 'localtime', 'start of month')
+                  AND transaction_date < date('now', 'localtime', 'start of month', '+1 month')
+                """
+            ).fetchone()
+
+            production_cost = connection.execute(
+                """
+                SELECT COALESCE(SUM(total_cost_cents), 0) AS total
+                FROM productions
+                WHERE occurred_at >= date('now', 'localtime', 'start of month')
+                  AND occurred_at < date('now', 'localtime', 'start of month', '+1 month')
+                """
+            ).fetchone()
+
+            stock_value = connection.execute(
+                """
+                SELECT COALESCE(SUM(value_cents), 0) AS total
+                FROM stock_movements
                 """
             ).fetchone()
 
@@ -312,8 +345,21 @@ class DashboardPage(QWidget):
         self.value_labels["sales_month"].setText(
             self._format_currency(sales["total"])
         )
+        self.value_labels["purchases_month"].setText(
+            self._format_currency(purchases["total"])
+        )
+        self.value_labels["stock_value"].setText(
+            self._format_currency(stock_value["total"])
+        )
+        self.value_labels["low_stock_count"].setText(str(len(low_stock)))
+        self.value_labels["low_stock_count"].setStyleSheet(
+            "color: #B42318;" if low_stock else "color: #187443;"
+        )
         self.value_labels["products_stock"].setText(str(product_stock["total"]))
         self.value_labels["productions"].setText(str(productions["total"]))
+        self.value_labels["productions"].setText(
+            f"{productions['total']} lotes"
+        )
         self.value_labels["financial"].setText(
             self._format_currency(financial["balance"])
         )
@@ -335,7 +381,7 @@ class DashboardPage(QWidget):
             month_label = f"{month_names[key[5:7]]}/{key[2:4]}"
             chart_values.append((
                 month_label,
-                max(0, row["income"] - row["expense"]) / 100,
+                (row["income"] - row["expense"]) / 100,
             ))
         self.monthly_chart.set_values(chart_values)
         self.top_products_chart.set_values([

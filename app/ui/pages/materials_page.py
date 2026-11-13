@@ -309,7 +309,7 @@ class MaterialsPage(QWidget):
     @staticmethod
     def _format_quantity(quantity_milli):
         quantity = quantity_milli / 1_000_000
-        return f"{quantity:,.3f}".replace(",", "X").replace(
+        return f"{quantity:,.6f}".replace(",", "X").replace(
             ".", ","
         ).replace("X", ".")
 

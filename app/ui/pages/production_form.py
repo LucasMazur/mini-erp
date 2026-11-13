@@ -29,8 +29,8 @@ class ProductionForm(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Registrar produção")
-        self.resize(850, 650)
-        self.setMinimumSize(700, 520)
+        self.resize(900, 760)
+        self.setMinimumSize(760, 650)
         self._create_interface()
         self._load_products()
 
@@ -86,7 +86,12 @@ class ProductionForm(QDialog):
         )
         self.materials_table.verticalHeader().setVisible(False)
         self.materials_table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.materials_table)
+        self.materials_table.setMinimumHeight(190)
+        self.materials_table.setSizePolicy(
+            self.materials_table.sizePolicy().Policy.Expanding,
+            self.materials_table.sizePolicy().Policy.Expanding,
+        )
+        layout.addWidget(self.materials_table, 1)
 
         self.stock_status = QLabel("Selecione uma receita finalizada.")
         self.stock_status.setWordWrap(True)

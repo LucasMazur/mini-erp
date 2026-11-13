@@ -641,6 +641,50 @@ def initialize_database() -> None:
             "CREATE INDEX idx_consignment_payments_consignment ON consignment_payments(consignment_id, payment_date)",
         ],
 
+        15: [
+            """
+            UPDATE materials
+            SET minimum_stock_quantity_milli = minimum_stock_quantity_milli * 1000
+            """,
+            """
+            UPDATE purchase_items
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE stock_movements
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE recipe_items
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE productions
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE production_items
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE sale_items
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE consignment_items
+            SET delivered_quantity_milli = delivered_quantity_milli * 1000,
+                sold_quantity_milli = sold_quantity_milli * 1000,
+                returned_quantity_milli = returned_quantity_milli * 1000
+            """,
+            """
+            UPDATE consignment_settlement_items
+            SET quantity_milli = quantity_milli * 1000
+            """,
+            """
+            UPDATE consignment_returns
+            SET quantity_milli = quantity_milli * 1000
+            """,
+        ],
         14: [
             """
             ALTER TABLE sales

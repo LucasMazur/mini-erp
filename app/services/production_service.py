@@ -324,7 +324,7 @@ def register_production(
                 data["product"]["name"],
                 data["recipe"]["name"],
                 data["version"]["version_number"],
-                quantity * 1000,
+                quantity * 1_000_000,
                 notes.strip() if notes and notes.strip() else None,
             ),
         )
@@ -392,7 +392,7 @@ def register_production(
             item_type="product",
             item_id=product_id,
             movement_type="production_output",
-            quantity_milli=quantity * 1000,
+            quantity_milli=quantity * 1_000_000,
             reference_type="production",
             reference_id=production_id,
             notes=f"Entrada da produção #{production_id}",

@@ -56,11 +56,13 @@ class ReportsPage(QWidget):
         card_layout.addWidget(caption)
         value = QLabel("0")
         value.setObjectName("card_value")
+        value.setWordWrap(True)
         card_layout.addWidget(value)
         return card, value
 
     def _create_table(self, headers, stretch_column=0):
         table = QTableWidget()
+        table.setMinimumHeight(170)
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)

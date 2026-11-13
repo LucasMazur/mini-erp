@@ -47,6 +47,7 @@ def test_db(tmp_path, monkeypatch):
                 sale_price_cents INTEGER,
                 active INTEGER NOT NULL DEFAULT 1,
                 notes TEXT,
+                image_path TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (category_id) REFERENCES categories(id),
                 FOREIGN KEY (stock_unit_id) REFERENCES units(id)

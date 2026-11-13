@@ -84,11 +84,11 @@ def create_sale(
             balance = _get_balances(
                 connection, "product_id", item["product_id"]
             )
-            required_quantity = item["quantity"] * 1000
+            required_quantity = item["quantity"] * 1_000_000
             if balance["quantity_milli"] < required_quantity:
                 raise ValueError(
                     f"Estoque insuficiente para {product['name']}. "
-                    f"Disponível: {balance['quantity_milli'] // 1000}; "
+                    f"Disponível: {balance['quantity_milli'] // 1_000_000}; "
                     f"solicitado: {item['quantity']}."
                 )
             products[item["product_id"]] = dict(product)
@@ -146,7 +146,7 @@ def create_sale(
                 (
                     sale_id,
                     item["product_id"],
-                    item["quantity"] * 1000,
+                    item["quantity"] * 1_000_000,
                     item["unit_price_cents"],
                     item["line_total_cents"],
                     product["name"],
@@ -159,7 +159,7 @@ def create_sale(
                 item_type="product",
                 item_id=item["product_id"],
                 movement_type="sale",
-                quantity_milli=-(item["quantity"] * 1000),
+                quantity_milli=-(item["quantity"] * 1_000_000),
                 reference_type="sale",
                 reference_id=sale_id,
                 notes=f"Saída da venda #{sale_id}",

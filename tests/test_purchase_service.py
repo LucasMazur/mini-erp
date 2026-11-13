@@ -427,6 +427,22 @@ def test_reverse_purchase_restores_stock(test_db):
     assert stock_service.get_stock_balance("material", 1) == 0
     assert stock_service.get_stock_balance("material", 2) == 0
 
+    with test_db() as connection:
+        financial = connection.execute(
+            """
+            SELECT direction, amount_cents, origin
+            FROM financial_transactions
+            WHERE reference_id = ?
+            ORDER BY id
+            """,
+            (purchase_id,),
+        ).fetchall()
+    assert [(row["direction"], row["amount_cents"], row["origin"])
+            for row in financial] == [
+        ("expense", 12500, "purchase"),
+        ("income", 12500, "purchase_reversal"),
+    ]
+
     purchase = purchase_service.get_purchase(purchase_id)
 
     assert purchase is not None

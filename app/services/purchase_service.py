@@ -535,6 +535,31 @@ def reverse_purchase(
                 notes or f"Estorno da compra #{purchase_id}",
             )
 
+        original_finance = connection.execute(
+            """
+            SELECT amount_cents
+            FROM financial_transactions
+            WHERE origin = 'purchase' AND reference_id = ?
+            """,
+            (purchase_id,),
+        ).fetchone()
+        if original_finance is not None:
+            connection.execute(
+                """
+                INSERT INTO financial_transactions (
+                    transaction_date, direction, description,
+                    amount_cents, category, origin, reference_id
+                )
+                VALUES (date('now', 'localtime'), 'income', ?, ?,
+                        'Estornos', 'purchase_reversal', ?)
+                """,
+                (
+                    f"Estorno da compra #{purchase_id}",
+                    original_finance["amount_cents"],
+                    purchase_id,
+                ),
+            )
+
         connection.commit()
 
     except Exception:

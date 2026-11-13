@@ -247,6 +247,17 @@ def reverse_sale(sale_id, notes=None):
             (sale_id,),
         ).fetchall()
         if not movements:
+            consignment_sale = connection.execute(
+                """
+                SELECT consignment_settlement_id FROM sales WHERE id = ?
+                """,
+                (sale_id,),
+            ).fetchone()
+            if consignment_sale and consignment_sale["consignment_settlement_id"]:
+                raise ValueError(
+                    "Esta venda veio de uma consignação. Faça o ajuste pela "
+                    "remessa da loja para manter os saldos de produtos e repasses."
+                )
             raise ValueError("Não foram encontradas movimentações da venda.")
 
         for movement in movements:

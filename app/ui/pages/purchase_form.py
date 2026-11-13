@@ -93,8 +93,8 @@ class PurchaseForm(QDialog):
         item_form.addRow("Unidade de compra", self.unit_combo)
 
         self.quantity_input = QDoubleSpinBox()
-        self.quantity_input.setDecimals(3)
-        self.quantity_input.setMinimum(0.001)
+        self.quantity_input.setDecimals(6)
+        self.quantity_input.setMinimum(0.000001)
         self.quantity_input.setMaximum(999999999)
         self.quantity_input.setSingleStep(1)
         item_form.addRow("Quantidade", self.quantity_input)

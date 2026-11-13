@@ -239,7 +239,7 @@ class PurchaseForm(QDialog):
             return
 
         quantity_milli = round(
-            self.quantity_input.value() * 1000
+            self.quantity_input.value() * 1_000_000
         )
 
         line_total_cents = round(
@@ -271,7 +271,7 @@ class PurchaseForm(QDialog):
         self.items_table.setRowCount(len(self.items))
 
         for row, item in enumerate(self.items):
-            quantity = item["quantity_milli"] / 1000
+            quantity = item["quantity_milli"] / 1_000_000
             value = item["line_total_cents"] / 100
 
             values = [

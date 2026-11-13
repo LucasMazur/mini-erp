@@ -3,8 +3,8 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
-    QHBoxLayout,
     QLabel,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -17,7 +17,7 @@ class BarChart(QWidget):
         super().__init__(parent)
         self.title = title
         self.values = []
-        self.setMinimumHeight(250)
+        self.setMinimumHeight(230)
 
     def set_values(self, values):
         self.values = values
@@ -140,7 +140,21 @@ class DashboardPage(QWidget):
         self.refresh_data()
 
     def _create_interface(self):
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        outer_layout.addWidget(scroll_area)
+
+        content_widget = QWidget()
+        scroll_area.setWidget(content_widget)
+
+        layout = QVBoxLayout(content_widget)
         layout.setContentsMargins(35, 30, 35, 30)
         layout.setSpacing(16)
 
@@ -169,14 +183,19 @@ class DashboardPage(QWidget):
         layout.addLayout(cards_layout)
 
         charts_layout = QGridLayout()
-        charts_layout.setSpacing(14)
+        charts_layout.setSpacing(18)
         self.monthly_chart = MonthlyChart()
-        self.top_products_chart = BarChart("Produtos mais vendidos — mês atual")
-        self.low_stock_chart = BarChart("Materiais que precisam de atenção")
+        self.top_products_chart = BarChart(
+            "Produtos mais vendidos — mês atual"
+        )
+        self.low_stock_chart = BarChart(
+            "Materiais que precisam de atenção"
+        )
         charts_layout.addWidget(self.monthly_chart, 0, 0)
         charts_layout.addWidget(self.top_products_chart, 0, 1)
         charts_layout.addWidget(self.low_stock_chart, 1, 0, 1, 2)
-        layout.addLayout(charts_layout, 1)
+        layout.addLayout(charts_layout)
+        layout.addStretch()
 
     def _create_card(self, name, value):
         card = QFrame()

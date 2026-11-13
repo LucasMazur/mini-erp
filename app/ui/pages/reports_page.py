@@ -30,6 +30,7 @@ from app.ui.pages.financial_transaction_dialog import FinancialTransactionDialog
 class ReportsPage(QWidget):
     def __init__(self):
         super().__init__()
+        self._table_filters = {}
         self._create_interface()
         self.refresh_data()
 
@@ -73,6 +74,30 @@ class ReportsPage(QWidget):
             )
             header.setSectionResizeMode(column, mode)
         return table
+
+    def _add_table_filter(self, layout, table, key, placeholder):
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(QLabel("Filtrar:"))
+        field = QLineEdit()
+        field.setClearButtonEnabled(True)
+        field.setPlaceholderText(placeholder)
+        field.textChanged.connect(
+            lambda text, target=table: self._filter_table(target, text)
+        )
+        self._table_filters[key] = field
+        filter_layout.addWidget(field, 1)
+        layout.addLayout(filter_layout)
+
+    @staticmethod
+    def _filter_table(table, text):
+        term = text.strip().casefold()
+        for row in range(table.rowCount()):
+            values = []
+            for column in range(table.columnCount()):
+                item = table.item(row, column)
+                if item:
+                    values.append(item.text().casefold())
+            table.setRowHidden(row, term not in " ".join(values))
 
     def _create_interface(self):
         layout = QVBoxLayout(self)
@@ -168,6 +193,9 @@ class ReportsPage(QWidget):
             ["Data", "Descrição", "Categoria", "Tipo", "Forma de pagamento", "Valor"],
             stretch_column=1,
         )
+        self._add_table_filter(
+            layout, self.transactions_table, "transactions_table", "Digite para filtrar transactions..."
+        )
         layout.addWidget(self.transactions_table, 1)
 
         category_section = QLabel("Resumo por categoria")
@@ -175,6 +203,9 @@ class ReportsPage(QWidget):
         layout.addWidget(category_section)
         self.category_table = self._create_table(
             ["Categoria", "Tipo", "Quantidade de lançamentos", "Valor total"]
+        )
+        self._add_table_filter(
+            layout, self.category_table, "category_table", "Digite para filtrar category..."
         )
         layout.addWidget(self.category_table, 1)
         self.financial_status = QLabel("")
@@ -206,6 +237,9 @@ class ReportsPage(QWidget):
             ["Produto", "Quantidade vendida", "Valor bruto", "Vendas"],
             stretch_column=0,
         )
+        self._add_table_filter(
+            layout, self.products_table, "products_table", "Digite para filtrar products..."
+        )
         layout.addWidget(self.products_table, 1)
 
         payment_title = QLabel("Vendas por forma de pagamento")
@@ -214,6 +248,9 @@ class ReportsPage(QWidget):
         self.payment_table = self._create_table(
             ["Forma de pagamento", "Quantidade de vendas", "Faturamento"],
             stretch_column=0,
+        )
+        self._add_table_filter(
+            layout, self.payment_table, "payment_table", "Digite para filtrar payment..."
         )
         layout.addWidget(self.payment_table, 1)
         self.sales_status = QLabel("")
@@ -260,6 +297,9 @@ class ReportsPage(QWidget):
             ],
             stretch_column=0,
         )
+        self._add_table_filter(
+            layout, self.sellers_report_table, "sellers_report_table", "Digite para filtrar sellers report..."
+        )
         layout.addWidget(self.sellers_report_table, 1)
         self.sellers_report_status = QLabel("")
         self.sellers_report_status.setObjectName("page_subtitle")
@@ -294,6 +334,9 @@ class ReportsPage(QWidget):
         self.purchase_supplier_table = self._create_table(
             ["Fornecedor", "Compras", "Valor total"], stretch_column=0
         )
+        self._add_table_filter(
+            layout, self.purchase_supplier_table, "purchase_supplier_table", "Digite para filtrar purchase supplier..."
+        )
         layout.addWidget(self.purchase_supplier_table, 1)
 
         material_title = QLabel("Materiais adquiridos")
@@ -302,6 +345,9 @@ class ReportsPage(QWidget):
         self.purchase_material_table = self._create_table(
             ["Material", "Quantidade adquirida", "Custo total"],
             stretch_column=0,
+        )
+        self._add_table_filter(
+            layout, self.purchase_material_table, "purchase_material_table", "Digite para filtrar purchase material..."
         )
         layout.addWidget(self.purchase_material_table, 1)
 
@@ -442,6 +488,9 @@ class ReportsPage(QWidget):
             ["Produto", "Lotes", "Quantidade produzida", "Custo total"],
             stretch_column=0,
         )
+        self._add_table_filter(
+            layout, self.production_products_table, "production_products_table", "Digite para filtrar production products..."
+        )
         layout.addWidget(self.production_products_table, 1)
 
         materials_title = QLabel("Materiais consumidos")
@@ -450,6 +499,9 @@ class ReportsPage(QWidget):
         self.production_materials_table = self._create_table(
             ["Material", "Quantidade consumida", "Custo total"],
             stretch_column=0,
+        )
+        self._add_table_filter(
+            layout, self.production_materials_table, "production_materials_table", "Digite para filtrar production materials..."
         )
         layout.addWidget(self.production_materials_table, 1)
 
@@ -608,23 +660,20 @@ class ReportsPage(QWidget):
             ["Material", "Saldo atual", "Estoque mínimo", "Valor em estoque", "Situação"],
             stretch_column=0,
         )
+        self._add_table_filter(
+            layout, self.stock_materials_table, "stock_materials_table", "Digite para filtrar stock materials..."
+        )
         layout.addWidget(self.stock_materials_table, 1)
 
         products_title = QLabel("Estoque de produtos")
         products_title.setObjectName("section_title")
         layout.addWidget(products_title)
-        product_filter = QHBoxLayout()
-        product_filter.addWidget(QLabel("Filtrar produto:"))
-        self.stock_product_filter = QLineEdit()
-        self.stock_product_filter.setPlaceholderText("Digite o nome do produto...")
-        self.stock_product_filter.textChanged.connect(
-            self._filter_stock_products
-        )
-        product_filter.addWidget(self.stock_product_filter, 1)
-        layout.addLayout(product_filter)
         self.stock_products_table = self._create_table(
             ["Produto", "Saldo atual", "Valor em estoque"],
             stretch_column=0,
+        )
+        self._add_table_filter(
+            layout, self.stock_products_table, "stock_products_table", "Digite para filtrar stock products..."
         )
         layout.addWidget(self.stock_products_table, 1)
 
@@ -737,15 +786,6 @@ class ReportsPage(QWidget):
             "ativo(s) analisados. O valor considera o custo registrado nos "
             "movimentos de estoque."
         )
-        self._filter_stock_products()
-
-    def _filter_stock_products(self, *_):
-        term = self.stock_product_filter.text().strip().casefold()
-        for row in range(self.stock_products_table.rowCount()):
-            item = self.stock_products_table.item(row, 0)
-            name = item.text().casefold() if item else ""
-            self.stock_products_table.setRowHidden(row, term not in name)
-
     def _refresh_sellers_report(self, start_date, end_date):
         with get_connection() as connection:
             rows = connection.execute(

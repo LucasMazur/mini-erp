@@ -641,6 +641,18 @@ def initialize_database() -> None:
             "CREATE INDEX idx_consignment_payments_consignment ON consignment_payments(consignment_id, payment_date)",
         ],
 
+        14: [
+            """
+            ALTER TABLE sales
+            ADD COLUMN consignment_settlement_id INTEGER
+            REFERENCES consignment_settlements(id) ON DELETE RESTRICT
+            """,
+            """
+            CREATE UNIQUE INDEX idx_sales_consignment_settlement
+            ON sales(consignment_settlement_id)
+            WHERE consignment_settlement_id IS NOT NULL
+            """,
+        ],
     }
 
     with get_connection() as connection:

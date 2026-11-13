@@ -121,7 +121,7 @@ class StockHistoryDialog(QDialog):
         value = valuation["value_cents"]
         average_cost = valuation[
             "average_cost_cents_per_milli"
-        ] * 1000
+        ] * 1_000_000
 
         summary_layout = QHBoxLayout()
         summary_layout.setSpacing(12)
@@ -219,7 +219,7 @@ class StockHistoryDialog(QDialog):
 
     @staticmethod
     def _format_quantity(quantity_milli):
-        quantity = abs(quantity_milli) / 1000
+        quantity = abs(quantity_milli) / 1_000_000
         if quantity_milli > 0:
             signal = "+"
         elif quantity_milli < 0:

@@ -223,10 +223,10 @@ class ConsignmentDetailsDialog(QDialog):
         for row, item in enumerate(self.data["items"]):
             values = [
                 item["product_name_snapshot"],
-                str(item["delivered_quantity_milli"] // 1000),
-                str(item["sold_quantity_milli"] // 1000),
-                str(item["returned_quantity_milli"] // 1000),
-                str(item["custody_quantity_milli"] // 1000),
+                str(item["delivered_quantity_milli"] // 1_000_000),
+                str(item["sold_quantity_milli"] // 1_000_000),
+                str(item["returned_quantity_milli"] // 1_000_000),
+                str(item["custody_quantity_milli"] // 1_000_000),
             ]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(value)
@@ -250,7 +250,7 @@ class ConsignmentDetailsDialog(QDialog):
         if item_id is None:
             return
         item = next(i for i in self.data["items"] if i["id"] == item_id)
-        available = item["custody_quantity_milli"] // 1000
+        available = item["custody_quantity_milli"] // 1_000_000
         if available <= 0:
             QMessageBox.information(self, "Sem saldo", "Não há unidades desse produto disponíveis na loja.")
             return
@@ -271,7 +271,7 @@ class ConsignmentDetailsDialog(QDialog):
         if item_id is None:
             return
         item = next(i for i in self.data["items"] if i["id"] == item_id)
-        available = item["custody_quantity_milli"] // 1000
+        available = item["custody_quantity_milli"] // 1_000_000
         if available <= 0:
             QMessageBox.information(self, "Sem saldo", "Não há unidades para devolver.")
             return
@@ -419,7 +419,7 @@ class SellersPage(QWidget):
             values = [
                 seller["name"],
                 commission,
-                str(seller["custody_quantity_milli"] // 1000),
+                str(seller["custody_quantity_milli"] // 1_000_000),
                 currency(seller["pending_cents"]),
                 "Ativo" if seller["active"] else "Inativo",
             ]
@@ -450,9 +450,9 @@ class SellersPage(QWidget):
             self.consignment_rows.append(consignment)
             values = [
                 consignment["dispatch_date"],
-                str(consignment["delivered_milli"] // 1000),
-                str(consignment["sold_milli"] // 1000),
-                str(consignment["custody_milli"] // 1000),
+                str(consignment["delivered_milli"] // 1_000_000),
+                str(consignment["sold_milli"] // 1_000_000),
+                str(consignment["custody_milli"] // 1_000_000),
                 currency(pending),
                 status,
             ]

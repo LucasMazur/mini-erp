@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.ui.pages.financial_transaction_dialog import FinancialTransactionDialog
+
 from app.services.financial_service import (
     get_financial_summary,
     list_transactions,
@@ -71,6 +73,18 @@ class FinancialPage(QWidget):
         cards.addWidget(expense_card)
         cards.addWidget(balance_card)
         layout.addLayout(cards)
+
+        actions = QHBoxLayout()
+        actions.addStretch()
+        income_button = QPushButton("+ Nova receita")
+        income_button.setObjectName("primary_button")
+        income_button.clicked.connect(lambda: self._open_transaction("income"))
+        actions.addWidget(income_button)
+
+        expense_button = QPushButton("+ Nova despesa")
+        expense_button.clicked.connect(lambda: self._open_transaction("expense"))
+        actions.addWidget(expense_button)
+        layout.addLayout(actions)
 
         filters = QHBoxLayout()
         filters.setSpacing(10)
@@ -138,6 +152,11 @@ class FinancialPage(QWidget):
     @staticmethod
     def _date_iso(date):
         return date.toString("yyyy-MM-dd")
+
+    def _open_transaction(self, direction):
+        dialog = FinancialTransactionDialog(direction, self)
+        if dialog.exec():
+            self.refresh_data()
 
     def _current_month(self):
         today = QDate.currentDate()

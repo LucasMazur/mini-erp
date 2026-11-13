@@ -45,6 +45,18 @@ def sales_db(tmp_path, monkeypatch):
                 reversal_of_id INTEGER UNIQUE,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE financial_transactions (
+                id INTEGER PRIMARY KEY,
+                transaction_date TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                description TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                payment_method TEXT,
+                category TEXT,
+                origin TEXT NOT NULL,
+                reference_id INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
             CREATE TABLE sales (
                 id INTEGER PRIMARY KEY,
                 sale_date TEXT NOT NULL,

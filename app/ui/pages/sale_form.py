@@ -11,10 +11,12 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from app.services.product_service import list_products
@@ -27,8 +29,8 @@ class SaleForm(QDialog):
         self.items = []
         self.products = {}
         self.setWindowTitle("Nova venda")
-        self.resize(940, 760)
-        self.setMinimumSize(780, 650)
+        self.resize(1000, 850)
+        self.setMinimumSize(800, 650)
         self._create_interface()
         self._load_products()
 
@@ -51,7 +53,18 @@ class SaleForm(QDialog):
         return card, card_layout
 
     def _create_interface(self):
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        outer_layout.addWidget(scroll_area)
+
+        content = QWidget()
+        scroll_area.setWidget(content)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(28, 25, 28, 24)
         layout.setSpacing(15)
 
@@ -122,7 +135,7 @@ class SaleForm(QDialog):
         self.items_table.setHorizontalHeaderLabels([
             "Produto", "Quantidade", "Preço unitário", "Subtotal", "Ação"
         ])
-        self.items_table.setMinimumHeight(150)
+        self.items_table.setMinimumHeight(190)
         self.items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.items_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.items_table.verticalHeader().setVisible(False)

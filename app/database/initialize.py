@@ -487,6 +487,12 @@ def initialize_database() -> None:
             CREATE INDEX idx_sale_items_product ON sale_items(product_id)
             """,
         ],
+        11: [
+            """
+            ALTER TABLE products
+            ADD COLUMN image_path TEXT
+            """,
+        ],
 
     }
 

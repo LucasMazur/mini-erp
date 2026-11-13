@@ -1,9 +1,11 @@
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -16,6 +18,11 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.connection import get_connection
+from app.services.image_storage import (
+    delete_product_image,
+    resolve_product_image,
+    save_product_image,
+)
 from app.services.product_service import (
     create_product,
     generate_next_product_code,
@@ -27,6 +34,8 @@ class ProductForm(QDialog):
     def __init__(self, parent=None, product=None):
         super().__init__(parent)
         self.product = product
+        self._selected_image_source = None
+        self._remove_image = False
         self.setWindowTitle("Editar produto" if product else "Novo produto")
         self.resize(620, 560)
         self.setMinimumSize(480, 420)
@@ -115,6 +124,34 @@ class ProductForm(QDialog):
         identity_form.addRow("Unidade de estoque *", self.unit_combo)
         identity_layout.addLayout(identity_form)
         layout.addWidget(identity_card)
+
+        image_card, image_layout = self._create_card(
+            "Imagem do produto",
+            "Escolha uma foto para identificar o produto no cadastro.",
+        )
+        image_row = QHBoxLayout()
+        self.image_preview = QLabel("Sem imagem")
+        self.image_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_preview.setFixedSize(150, 150)
+        self.image_preview.setStyleSheet(
+            "QLabel { background: #F4F6FA; border: 1px dashed #C0C6CC; "
+            "border-radius: 10px; color: #6B7280; }"
+        )
+        image_row.addWidget(self.image_preview)
+
+        image_actions = QVBoxLayout()
+        select_image_button = QPushButton("Selecionar imagem")
+        select_image_button.clicked.connect(self._select_product_image)
+        image_actions.addWidget(select_image_button)
+
+        remove_image_button = QPushButton("Remover imagem")
+        remove_image_button.clicked.connect(self._remove_product_image)
+        image_actions.addWidget(remove_image_button)
+        image_actions.addStretch()
+        image_row.addLayout(image_actions)
+        image_row.addStretch()
+        image_layout.addLayout(image_row)
+        layout.addWidget(image_card)
 
         price_card, price_layout = self._create_card(
             "Preço de venda",
@@ -222,17 +259,78 @@ class ProductForm(QDialog):
             self.price_input.setValue(price / 100)
 
         self.notes_input.setPlainText(self.product["notes"] or "")
+        self._show_product_image(self.product.get("image_path"))
+
+    def _show_product_image(self, image_path=None):
+        if not image_path:
+            self.image_preview.setPixmap(QPixmap())
+            self.image_preview.setText("Sem imagem")
+            return
+
+        path = resolve_product_image(image_path)
+        pixmap = QPixmap(str(path)) if path else QPixmap()
+        if pixmap.isNull():
+            self.image_preview.setPixmap(QPixmap())
+            self.image_preview.setText("Imagem indisponível")
+            return
+
+        self.image_preview.setText("")
+        self.image_preview.setPixmap(
+            pixmap.scaled(
+                self.image_preview.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+
+    def _select_product_image(self):
+        source_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Selecionar imagem do produto",
+            "",
+            "Imagens (*.jpg *.jpeg *.png *.webp)",
+        )
+        if not source_path:
+            return
+
+        pixmap = QPixmap(source_path)
+        if pixmap.isNull():
+            QMessageBox.warning(
+                self,
+                "Imagem inválida",
+                "Não foi possível abrir o arquivo selecionado.",
+            )
+            return
+
+        self._selected_image_source = source_path
+        self._remove_image = False
+        self.image_preview.setText("")
+        self.image_preview.setPixmap(
+            pixmap.scaled(
+                self.image_preview.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+
+    def _remove_product_image(self):
+        self._selected_image_source = None
+        self._remove_image = True
+        self._show_product_image()
 
     def _save_product(self):
         name = self.name_input.text().strip()
         if not name:
-            QMessageBox.warning(self, "Campo obrigatório", "Informe o nome do produto.")
+            QMessageBox.warning(
+                self, "Campo obrigatório", "Informe o nome do produto."
+            )
             self.name_input.setFocus()
             return
 
         if self.unit_combo.currentData() is None:
             QMessageBox.warning(
-                self, "Unidade obrigatória",
+                self,
+                "Unidade obrigatória",
                 "Não existem unidades ativas cadastradas.",
             )
             return
@@ -243,30 +341,53 @@ class ProductForm(QDialog):
             else None
         )
 
+        old_image_path = (
+            self.product.get("image_path") if self.product else None
+        )
+        new_image_path = None
+        image_changed = self._selected_image_source is not None or self._remove_image
+
         try:
-            if self.product:
-                update_product(
-                    product_id=self.product["id"],
-                    name=name,
-                    code=self.code_input.text(),
-                    category_id=self.category_combo.currentData(),
-                    stock_unit_id=self.unit_combo.currentData(),
-                    sale_price_cents=price_cents,
-                    notes=self.notes_input.toPlainText(),
+            if self._selected_image_source:
+                new_image_path = save_product_image(
+                    self._selected_image_source
                 )
+
+            common_values = {
+                "name": name,
+                "code": self.code_input.text(),
+                "category_id": self.category_combo.currentData(),
+                "stock_unit_id": self.unit_combo.currentData(),
+                "sale_price_cents": price_cents,
+                "notes": self.notes_input.toPlainText(),
+            }
+
+            if self.product:
+                if image_changed:
+                    update_product(
+                        product_id=self.product["id"],
+                        image_path=new_image_path,
+                        **common_values,
+                    )
+                else:
+                    update_product(
+                        product_id=self.product["id"],
+                        **common_values,
+                    )
                 message = "Produto atualizado com sucesso!"
             else:
                 create_product(
-                    name=name,
-                    code=self.code_input.text(),
-                    category_id=self.category_combo.currentData(),
-                    stock_unit_id=self.unit_combo.currentData(),
-                    sale_price_cents=price_cents,
-                    notes=self.notes_input.toPlainText(),
+                    image_path=new_image_path,
+                    **common_values,
                 )
                 message = "Produto cadastrado com sucesso!"
 
+            if image_changed and old_image_path:
+                delete_product_image(old_image_path)
+
             QMessageBox.information(self, "Sucesso", message)
             self.accept()
-        except ValueError as error:
+        except (ValueError, OSError) as error:
+            if new_image_path:
+                delete_product_image(new_image_path)
             QMessageBox.critical(self, "Erro ao salvar", str(error))

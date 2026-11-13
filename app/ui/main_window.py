@@ -20,6 +20,7 @@ from app.ui.pages.purchases_page import PurchasesPage
 from app.ui.pages.recipes_page import RecipesPage
 from app.ui.pages.sales_page import SalesPage
 from app.ui.pages.suppliers_page import SuppliersPage
+from app.ui.pages.sellers_page import SellersPage
 from app.ui.pages.reports_page import ReportsPage
 
 class MainWindow(QMainWindow):
@@ -56,6 +57,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(CategoriesPage())
         self.pages.addWidget(SuppliersPage())
         self.pages.addWidget(ReportsPage())
+        self.pages.addWidget(SellersPage())
 
         main_layout.addWidget(self.pages)
 
@@ -113,6 +115,7 @@ class MainWindow(QMainWindow):
             ("Categorias", 7),
             ("Fornecedores", 8),
             ("Relatórios", 9),
+            ("Vendedores", 10),
         ]
 
         for item, page_index in menu_items:

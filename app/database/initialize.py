@@ -653,7 +653,6 @@ def initialize_database() -> None:
             WHERE consignment_settlement_id IS NOT NULL
             """,
         ],
-,
         15: [
             """
             UPDATE materials

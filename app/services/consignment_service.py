@@ -429,6 +429,74 @@ def register_settlement(consignment_id, settlement_date, items, notes=None):
                 """,
                 (settlement_id, item_id, quantity_milli, unit_price, line_total),
             )
+        # O acerto representa a venda efetiva dos produtos na loja.
+        # O estoque já saiu na remessa; portanto, não registrar nova baixa.
+        seller = connection.execute(
+            """
+            SELECT s.name FROM consignments c
+            JOIN sellers s ON s.id = c.seller_id
+            WHERE c.id = ?
+            """,
+            (consignment_id,),
+        ).fetchone()
+        payment_label = f"Consignação - {seller['name']}"
+        sale_cursor = connection.execute(
+            """
+            INSERT INTO sales (
+                sale_date, subtotal_cents, discount_cents,
+                total_cents, payment_method, notes,
+                consignment_settlement_id
+            )
+            VALUES (?, ?, 0, ?, ?, ?, ?)
+            """,
+            (
+                settlement_date, gross, gross, payment_label,
+                f"Venda consignada da remessa #{consignment_id}",
+                settlement_id,
+            ),
+        )
+        sale_id = sale_cursor.lastrowid
+        for item_id, quantity_milli, unit_price, line_total in lines:
+            item = connection.execute(
+                """
+                SELECT product_id, product_name_snapshot, unit_symbol_snapshot
+                FROM consignment_items WHERE id = ?
+                """,
+                (item_id,),
+            ).fetchone()
+            connection.execute(
+                """
+                INSERT INTO sale_items (
+                    sale_id, product_id, quantity_milli,
+                    unit_price_cents, line_total_cents,
+                    product_name_snapshot, unit_symbol_snapshot
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sale_id, item["product_id"], quantity_milli,
+                    unit_price, line_total, item["product_name_snapshot"],
+                    item["unit_symbol_snapshot"],
+                ),
+            )
+
+        # A comissão é despesa no momento em que a loja confirma a venda.
+        if commission > 0:
+            connection.execute(
+                """
+                INSERT INTO financial_transactions (
+                    transaction_date, direction, description, amount_cents,
+                    category, origin, reference_id
+                )
+                VALUES (?, 'expense', ?, ?, 'Comissões', 'manual', NULL)
+                """,
+                (
+                    settlement_date,
+                    f"Comissão da {seller['name']} - acerto #{settlement_id}",
+                    commission,
+                ),
+            )
+
         connection.commit()
         return settlement_id
     except Exception:

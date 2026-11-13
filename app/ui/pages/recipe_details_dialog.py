@@ -412,12 +412,12 @@ class RecipeDetailsDialog(QDialog):
             ]
 
             for column, value in enumerate(values):
-                self.table.setItem(
-                    row,
-                    column,
-                    QTableWidgetItem(str(value)),
-                )
+                cell = QTableWidgetItem(str(value))
+                if column == 0:
+                    cell.setData(Qt.ItemDataRole.UserRole, item["id"])
+                self.table.setItem(row, column, cell)
 
+        self._update_remove_button()
         try:
             cost = calculate_recipe_cost(
                 self.recipe_id,

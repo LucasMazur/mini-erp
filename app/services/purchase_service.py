@@ -71,7 +71,7 @@ def _convert_quantity_milli(
             "A unidade da compra é incompatível com a unidade do material."
         )
 
-    quantity = Fraction(quantity_milli, 1000)
+    quantity = Fraction(quantity_milli, 1_000_000)
 
     source_factor = Fraction(
         from_unit["factor_num"],
@@ -84,12 +84,12 @@ def _convert_quantity_milli(
     )
 
     converted = quantity * source_factor / target_factor
-    converted_milli = converted * 1000
+    converted_milli = converted * 1_000_000
 
     if converted_milli.denominator != 1:
         raise ValueError(
             "A conversão resulta em uma quantidade menor que "
-            "a precisão de milésimos permitida pelo estoque."
+            "a precisão de seis casas decimais permitida pelo estoque."
         )
 
     return converted_milli.numerator
@@ -254,7 +254,7 @@ def create_purchase(
 
             item["unit_cost_cents"] = _round_fraction(
                 Fraction(
-                    item["line_total_cents"] * 1000,
+                    item["line_total_cents"] * 1_000_000,
                     item["quantity_milli"],
                 )
             )

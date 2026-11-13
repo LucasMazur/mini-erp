@@ -131,7 +131,7 @@ class MaterialsPage(QWidget):
             self._update_action_buttons
         )
         self.table.cellDoubleClicked.connect(
-            lambda row, column: self.edit_selected_material()
+            lambda row, column: self.open_stock_history()
         )
 
         layout.addWidget(self.table)

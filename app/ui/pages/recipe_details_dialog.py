@@ -29,7 +29,8 @@ class RecipeDetailsDialog(QDialog):
         self.recipe = get_recipe(recipe_id)
 
         self.setWindowTitle("Detalhes da receita")
-        self.resize(850, 550)
+        self.resize(950, 680)
+        self.setMinimumSize(800, 580)
 
         self._create_interface()
         self.load_recipe_details()
@@ -47,29 +48,47 @@ class RecipeDetailsDialog(QDialog):
         self.recipe_label.setObjectName("page_subtitle")
         layout.addWidget(self.recipe_label)
 
-        self.version_label = QLabel()
+        version_layout = QHBoxLayout()
+        self.version_label = QLabel("Versão")
+        version_layout.addWidget(self.version_label)
         self.version_combo = QComboBox()
+        self.version_combo.setMinimumWidth(190)
         self.version_combo.currentIndexChanged.connect(
             self.load_selected_version
         )
-        layout.addWidget(self.version_combo)
+        version_layout.addWidget(self.version_combo)
+        version_layout.addStretch()
+        layout.addLayout(version_layout)
+
+        actions = QHBoxLayout()
+        actions.setSpacing(10)
         self.finalize_button = QPushButton("Finalizar versão")
         self.finalize_button.setObjectName("primary_button")
         self.finalize_button.clicked.connect(self.finalize_version)
-        layout.addWidget(self.finalize_button)
+        actions.addWidget(self.finalize_button)
         self.add_material_button = QPushButton("+ Adicionar material")
         self.add_material_button.setObjectName("primary_button")
         self.add_material_button.clicked.connect(self.open_add_material)
-        layout.addWidget(self.add_material_button)
-        self.remove_material_button = QPushButton("Remover material selecionado")
+        actions.addWidget(self.add_material_button)
+        self.remove_material_button = QPushButton("Remover material")
         self.remove_material_button.setEnabled(False)
         self.remove_material_button.clicked.connect(self.remove_selected_material)
-        layout.addWidget(self.remove_material_button)
+        actions.addWidget(self.remove_material_button)
         self.new_version_button = QPushButton("Criar nova versão")
         self.new_version_button.setObjectName("primary_button")
         self.new_version_button.clicked.connect(self.create_new_version)
-        layout.addWidget(self.new_version_button)
-        layout.addWidget(self.version_label)
+        actions.addWidget(self.new_version_button)
+        actions.addStretch()
+        layout.addLayout(actions)
+
+        for button in (
+            self.finalize_button,
+            self.add_material_button,
+            self.remove_material_button,
+            self.new_version_button,
+        ):
+            button.setMinimumHeight(38)
+            button.setMaximumHeight(42)
 
         self.table = QTableWidget()
         self.table.setColumnCount(4)
@@ -90,7 +109,8 @@ class RecipeDetailsDialog(QDialog):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.itemSelectionChanged.connect(self._update_remove_button)
 
-        layout.addWidget(self.table)
+        layout.addWidget(self.table, 1)
+        self.table.verticalHeader().setDefaultSectionSize(34)
 
         total_layout = QHBoxLayout()
 

@@ -162,7 +162,7 @@ class ProductionForm(QDialog):
 
     @staticmethod
     def _format_quantity(quantity_milli):
-        value = quantity_milli / 1000
+        value = quantity_milli / 1_000_000
         return f"{value:,.3f}".replace(",", "X").replace(
             ".", ","
         ).replace("X", ".")

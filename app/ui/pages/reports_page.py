@@ -119,6 +119,7 @@ class ReportsPage(QWidget):
         self._create_financial_tab()
         self._create_sales_tab()
         self._create_purchases_tab()
+        self._create_production_tab()
         self._create_stock_tab()
 
     def _create_financial_tab(self):
@@ -355,6 +356,174 @@ class ReportsPage(QWidget):
             "foram desconsideradas."
         )
 
+    def _create_production_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(8, 12, 8, 8)
+        layout.setSpacing(14)
+
+        note = QLabel(
+            "Indicadores de produção no período selecionado. Os custos "
+            "representam os materiais consumidos nos lotes registrados."
+        )
+        note.setObjectName("page_subtitle")
+        layout.addWidget(note)
+
+        cards = QHBoxLayout()
+        batches_card, self.production_batches_value = self._create_card(
+            "Lotes produzidos"
+        )
+        quantity_card, self.production_quantity_value = self._create_card(
+            "Unidades produzidas"
+        )
+        cost_card, self.production_cost_value = self._create_card(
+            "Custo total de materiais"
+        )
+        average_card, self.production_average_value = self._create_card(
+            "Custo médio por unidade"
+        )
+        for card in (
+            batches_card, quantity_card, cost_card, average_card
+        ):
+            cards.addWidget(card)
+        layout.addLayout(cards)
+
+        products_title = QLabel("Produção por produto")
+        products_title.setObjectName("section_title")
+        layout.addWidget(products_title)
+        self.production_products_table = self._create_table(
+            ["Produto", "Lotes", "Quantidade produzida", "Custo total"],
+            stretch_column=0,
+        )
+        layout.addWidget(self.production_products_table, 1)
+
+        materials_title = QLabel("Materiais consumidos")
+        materials_title.setObjectName("section_title")
+        layout.addWidget(materials_title)
+        self.production_materials_table = self._create_table(
+            ["Material", "Quantidade consumida", "Custo total"],
+            stretch_column=0,
+        )
+        layout.addWidget(self.production_materials_table, 1)
+
+        self.production_status = QLabel("")
+        self.production_status.setObjectName("page_subtitle")
+        layout.addWidget(self.production_status)
+        self.tabs.addTab(tab, "Produção")
+
+    def _refresh_production(self, start_date, end_date):
+        with get_connection() as connection:
+            productions = connection.execute(
+                """
+                SELECT
+                    id,
+                    product_name_snapshot,
+                    recipe_name_snapshot,
+                    recipe_version_number,
+                    quantity_milli,
+                    total_cost_cents,
+                    occurred_at
+                FROM productions
+                WHERE date(occurred_at) BETWEEN date(?) AND date(?)
+                ORDER BY occurred_at DESC, id DESC
+                """,
+                (start_date, end_date),
+            ).fetchall()
+
+            product_rows = connection.execute(
+                """
+                SELECT
+                    product_name_snapshot AS product_name,
+                    COUNT(*) AS batch_count,
+                    SUM(quantity_milli) AS quantity_milli,
+                    SUM(total_cost_cents) AS total_cost_cents
+                FROM productions
+                WHERE date(occurred_at) BETWEEN date(?) AND date(?)
+                GROUP BY product_name_snapshot
+                ORDER BY total_cost_cents DESC, product_name_snapshot
+                """,
+                (start_date, end_date),
+            ).fetchall()
+
+            material_rows = connection.execute(
+                """
+                SELECT
+                    pi.material_name_snapshot AS material_name,
+                    pi.unit_symbol_snapshot AS unit,
+                    SUM(pi.quantity_milli) AS quantity_milli,
+                    SUM(pi.total_cost_cents) AS total_cost_cents
+                FROM production_items pi
+                JOIN productions p ON p.id = pi.production_id
+                WHERE date(p.occurred_at) BETWEEN date(?) AND date(?)
+                GROUP BY pi.material_name_snapshot, pi.unit_symbol_snapshot
+                ORDER BY total_cost_cents DESC, material_name
+                """,
+                (start_date, end_date),
+            ).fetchall()
+
+        total_batches = len(productions)
+        total_quantity = sum(row["quantity_milli"] for row in productions)
+        total_cost = sum(row["total_cost_cents"] for row in productions)
+        produced_units = total_quantity / 1000
+        average_cost = (
+            round(total_cost / produced_units)
+            if produced_units > 0 else 0
+        )
+
+        self.production_batches_value.setText(str(total_batches))
+        self.production_quantity_value.setText(
+            f"{produced_units:,.3f}".replace(",", "X")
+            .replace(".", ",").replace("X", ".")
+        )
+        self.production_cost_value.setText(self._currency(total_cost))
+        self.production_average_value.setText(self._currency(average_cost))
+
+        self.production_products_table.setRowCount(len(product_rows))
+        for row, product in enumerate(product_rows):
+            quantity = product["quantity_milli"] / 1000
+            values = [
+                product["product_name"],
+                str(product["batch_count"]),
+                f"{quantity:,.3f}".replace(",", "X")
+                .replace(".", ",").replace("X", "."),
+                self._currency(product["total_cost_cents"]),
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column > 0:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight
+                        | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.production_products_table.setItem(row, column, item)
+
+        self.production_materials_table.setRowCount(len(material_rows))
+        for row, material in enumerate(material_rows):
+            quantity = material["quantity_milli"] / 1000
+            formatted_quantity = f"{quantity:,.3f}".replace(",", "X")
+            formatted_quantity = formatted_quantity.replace(
+                ".", ","
+            ).replace("X", ".")
+            values = [
+                material["material_name"],
+                f"{formatted_quantity} {material['unit']}",
+                self._currency(material["total_cost_cents"]),
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column > 0:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight
+                        | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.production_materials_table.setItem(row, column, item)
+
+        self.production_status.setText(
+            f"{total_batches} lote(s) considerado(s) no período. "
+            "O custo médio por unidade é calculado pelo custo dos materiais "
+            "consumidos dividido pela quantidade produzida."
+        )
+
     def _create_stock_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -540,6 +709,7 @@ class ReportsPage(QWidget):
         self._refresh_financial(start_date, end_date)
         self._refresh_sales(start_date, end_date)
         self._refresh_purchases(start_date, end_date)
+        self._refresh_production(start_date, end_date)
         self._refresh_stock()
 
     def _show_invalid_period(self):
@@ -558,6 +728,12 @@ class ReportsPage(QWidget):
         self.payment_table.setRowCount(0)
         self.purchase_supplier_table.setRowCount(0)
         self.purchase_material_table.setRowCount(0)
+        self.production_products_table.setRowCount(0)
+        self.production_materials_table.setRowCount(0)
+        self.production_batches_value.setText("—")
+        self.production_quantity_value.setText("—")
+        self.production_cost_value.setText("—")
+        self.production_average_value.setText("—")
         self.stock_materials_table.setRowCount(0)
         self.stock_products_table.setRowCount(0)
         self.financial_status.setText(

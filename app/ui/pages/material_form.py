@@ -68,7 +68,7 @@ class MaterialForm(QDialog):
         form.addRow("Unidade de estoque *", self.unit_combo)
 
         self.minimum_stock_input = QDoubleSpinBox()
-        self.minimum_stock_input.setDecimals(3)
+        self.minimum_stock_input.setDecimals(6)
         self.minimum_stock_input.setMinimum(0)
         self.minimum_stock_input.setMaximum(999999999)
         self.minimum_stock_input.setSingleStep(1)

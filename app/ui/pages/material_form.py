@@ -151,7 +151,7 @@ class MaterialForm(QDialog):
             self.unit_combo.setCurrentIndex(unit_index)
 
         minimum = self.material["minimum_stock_quantity_milli"]
-        self.minimum_stock_input.setValue(minimum / 1000)
+        self.minimum_stock_input.setValue(minimum / 1_000_000)
 
         self.notes_input.setPlainText(
             self.material["notes"] or ""
@@ -178,7 +178,7 @@ class MaterialForm(QDialog):
             return
 
         minimum_stock = round(
-            self.minimum_stock_input.value() * 1000
+            self.minimum_stock_input.value() * 1_000_000
         )
 
         try:

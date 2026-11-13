@@ -112,6 +112,26 @@ def create_sale(
         )
         sale_id = cursor.lastrowid
 
+        total_income_cents = subtotal_cents - discount_cents
+        if total_income_cents > 0:
+            connection.execute(
+                """
+                INSERT INTO financial_transactions (
+                    transaction_date, direction, description,
+                    amount_cents, payment_method, category,
+                    origin, reference_id
+                )
+                VALUES (?, 'income', ?, ?, ?, 'Vendas', 'sale', ?)
+                """,
+                (
+                    sale_date,
+                    f"Venda #{sale_id}",
+                    total_income_cents,
+                    payment_method,
+                    sale_id,
+                ),
+            )
+
         for item in normalized_items:
             product = products[item["product_id"]]
             connection.execute(

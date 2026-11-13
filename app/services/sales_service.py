@@ -260,6 +260,32 @@ def reverse_sale(sale_id, notes=None):
             "UPDATE sales SET reversed_at = CURRENT_TIMESTAMP WHERE id = ?",
             (sale_id,),
         )
+
+        original_finance = connection.execute(
+            """
+            SELECT amount_cents
+            FROM financial_transactions
+            WHERE origin = 'sale' AND reference_id = ?
+            """,
+            (sale_id,),
+        ).fetchone()
+        if original_finance is not None:
+            connection.execute(
+                """
+                INSERT INTO financial_transactions (
+                    transaction_date, direction, description,
+                    amount_cents, category, origin, reference_id
+                )
+                VALUES (date('now', 'localtime'), 'expense', ?, ?,
+                        'Estornos', 'sale_reversal', ?)
+                """,
+                (
+                    f"Estorno da venda #{sale_id}",
+                    original_finance["amount_cents"],
+                    sale_id,
+                ),
+            )
+
         connection.commit()
         return sale_id
 

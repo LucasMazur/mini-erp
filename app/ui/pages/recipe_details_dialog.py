@@ -221,7 +221,7 @@ class RecipeDetailsDialog(QDialog):
         quantity = quantity_milli / 1_000_000
 
         return (
-            f"{quantity:,.3f}"
+            f"{quantity:,.6f}"
             .replace(",", "X")
             .replace(".", ",")
             .replace("X", ".")

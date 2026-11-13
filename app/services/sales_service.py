@@ -294,3 +294,76 @@ def reverse_sale(sale_id, notes=None):
         raise
     finally:
         connection.close()
+
+
+def get_sales_report(start_date=None, end_date=None):
+    """Retorna indicadores, vendas por forma de pagamento e produtos vendidos."""
+    filters = ["s.reversed_at IS NULL"]
+    parameters = []
+
+    if start_date:
+        filters.append("s.sale_date >= ?")
+        parameters.append(start_date)
+    if end_date:
+        filters.append("s.sale_date <= ?")
+        parameters.append(end_date)
+
+    where_clause = " AND ".join(filters)
+
+    with get_connection() as connection:
+        summary = connection.execute(
+            f"""
+            SELECT
+                COUNT(*) AS sales_count,
+                COALESCE(SUM(s.total_cents), 0) AS revenue_cents,
+                COALESCE((
+                    SELECT SUM(si.quantity_milli)
+                    FROM sale_items si
+                    JOIN sales sx ON sx.id = si.sale_id
+                    WHERE sx.reversed_at IS NULL
+                      AND (? IS NULL OR sx.sale_date >= ?)
+                      AND (? IS NULL OR sx.sale_date <= ?)
+                ), 0) AS quantity_milli
+            FROM sales s
+            WHERE {where_clause}
+            """,
+            (
+                start_date, start_date, end_date, end_date, *parameters
+            ),
+        ).fetchone()
+
+        by_payment = connection.execute(
+            f"""
+            SELECT payment_method, COUNT(*) AS sales_count,
+                   SUM(total_cents) AS revenue_cents
+            FROM sales s
+            WHERE {where_clause}
+            GROUP BY payment_method
+            ORDER BY revenue_cents DESC
+            """,
+            parameters,
+        ).fetchall()
+
+        by_product = connection.execute(
+            f"""
+            SELECT
+                si.product_name_snapshot AS product_name,
+                SUM(si.quantity_milli) AS quantity_milli,
+                SUM(si.line_total_cents) AS gross_cents,
+                COUNT(DISTINCT s.id) AS sales_count
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            WHERE {where_clause}
+            GROUP BY si.product_name_snapshot
+            ORDER BY gross_cents DESC, product_name
+            """,
+            parameters,
+        ).fetchall()
+
+    return {
+        "sales_count": summary["sales_count"],
+        "revenue_cents": summary["revenue_cents"],
+        "quantity_milli": summary["quantity_milli"],
+        "by_payment": [dict(row) for row in by_payment],
+        "by_product": [dict(row) for row in by_product],
+    }

@@ -227,7 +227,7 @@ class StockHistoryDialog(QDialog):
         else:
             signal = ""
 
-        return f"{signal}{quantity:,.3f}".replace(
+        return f"{signal}{quantity:,.6f}".replace(
             ",", "X"
         ).replace(".", ",").replace("X", ".")
 

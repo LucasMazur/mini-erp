@@ -21,6 +21,8 @@ from app.services.financial_service import (
     list_transactions,
 )
 from app.services.sales_service import get_sales_report
+from app.services.purchase_service import list_purchases
+from app.database.connection import get_connection
 from app.ui.pages.financial_transaction_dialog import FinancialTransactionDialog
 
 
@@ -116,6 +118,7 @@ class ReportsPage(QWidget):
         layout.addWidget(self.tabs, 1)
         self._create_financial_tab()
         self._create_sales_tab()
+        self._create_purchases_tab()
 
     def _create_financial_tab(self):
         tab = QWidget()
@@ -214,6 +217,143 @@ class ReportsPage(QWidget):
         layout.addWidget(self.sales_status)
         self.tabs.addTab(tab, "Vendas")
 
+
+    def _create_purchases_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(8, 12, 8, 8)
+        layout.setSpacing(14)
+
+        cards = QHBoxLayout()
+        total_card, self.purchase_total_value = self._create_card(
+            "Total comprado"
+        )
+        count_card, self.purchase_count_value = self._create_card(
+            "Compras realizadas"
+        )
+        suppliers_card, self.purchase_suppliers_value = self._create_card(
+            "Fornecedores utilizados"
+        )
+        cards.addWidget(total_card)
+        cards.addWidget(count_card)
+        cards.addWidget(suppliers_card)
+        layout.addLayout(cards)
+
+        supplier_title = QLabel("Compras por fornecedor")
+        supplier_title.setObjectName("section_title")
+        layout.addWidget(supplier_title)
+        self.purchase_supplier_table = self._create_table(
+            ["Fornecedor", "Compras", "Valor total"], stretch_column=0
+        )
+        layout.addWidget(self.purchase_supplier_table, 1)
+
+        material_title = QLabel("Materiais adquiridos")
+        material_title.setObjectName("section_title")
+        layout.addWidget(material_title)
+        self.purchase_material_table = self._create_table(
+            ["Material", "Quantidade adquirida", "Custo total"],
+            stretch_column=0,
+        )
+        layout.addWidget(self.purchase_material_table, 1)
+
+        self.purchase_status = QLabel("")
+        self.purchase_status.setObjectName("page_subtitle")
+        layout.addWidget(self.purchase_status)
+        self.tabs.addTab(tab, "Compras")
+
+    def _refresh_purchases(self, start_date, end_date):
+        purchases = list_purchases(start_date=start_date, end_date=end_date)
+        valid_purchases = [
+            purchase for purchase in purchases if not purchase["is_reversed"]
+        ]
+        total_cents = sum(
+            purchase["total_cost_cents"] for purchase in valid_purchases
+        )
+        supplier_totals = defaultdict(lambda: {"count": 0, "total": 0})
+        valid_ids = []
+
+        for purchase in valid_purchases:
+            supplier = purchase["supplier_name"] or "Sem fornecedor"
+            supplier_totals[supplier]["count"] += 1
+            supplier_totals[supplier]["total"] += purchase["total_cost_cents"]
+            valid_ids.append(purchase["id"])
+
+        self.purchase_total_value.setText(self._currency(total_cents))
+        self.purchase_count_value.setText(str(len(valid_purchases)))
+        self.purchase_suppliers_value.setText(str(len(supplier_totals)))
+
+        supplier_rows = sorted(
+            supplier_totals.items(),
+            key=lambda item: item[1]["total"],
+            reverse=True,
+        )
+        self.purchase_supplier_table.setRowCount(len(supplier_rows))
+        for row, (supplier, values) in enumerate(supplier_rows):
+            cells = [
+                supplier,
+                str(values["count"]),
+                self._currency(values["total"]),
+            ]
+            for column, value in enumerate(cells):
+                item = QTableWidgetItem(value)
+                if column > 0:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.purchase_supplier_table.setItem(row, column, item)
+
+        material_totals = defaultdict(lambda: {"quantity": 0, "cost": 0})
+        if valid_ids:
+            placeholders = ",".join("?" for _ in valid_ids)
+            with get_connection() as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT material_name_snapshot AS name,
+                           unit_symbol_snapshot AS unit,
+                           SUM(quantity_milli) AS quantity,
+                           SUM(landed_cost_cents) AS cost
+                    FROM purchase_items
+                    WHERE purchase_id IN ({placeholders})
+                    GROUP BY material_name_snapshot, unit_symbol_snapshot
+                    ORDER BY cost DESC, name
+                    """,
+                    valid_ids,
+                ).fetchall()
+            for item in rows:
+                material_totals[(item["name"], item["unit"])] = {
+                    "quantity": item["quantity"],
+                    "cost": item["cost"],
+                }
+
+        material_rows = sorted(
+            material_totals.items(),
+            key=lambda item: item[1]["cost"],
+            reverse=True,
+        )
+        self.purchase_material_table.setRowCount(len(material_rows))
+        for row, ((name, unit), values) in enumerate(material_rows):
+            quantity = f"{values['quantity'] / 1000:,.3f}".replace(
+                ",", "X"
+            ).replace(".", ",").replace("X", ".")
+            cells = [
+                name,
+                f"{quantity} {unit}",
+                self._currency(values["cost"]),
+            ]
+            for column, value in enumerate(cells):
+                item = QTableWidgetItem(value)
+                if column > 0:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.purchase_material_table.setItem(row, column, item)
+
+        self.purchase_status.setText(
+            f"{len(valid_purchases)} compra(s) considerada(s). "
+            f"{len(purchases) - len(valid_purchases)} compra(s) estornada(s) "
+            "foram desconsideradas."
+        )
+
     def _open_transaction(self, direction):
         dialog = FinancialTransactionDialog(direction, self)
         if dialog.exec():
@@ -240,6 +380,7 @@ class ReportsPage(QWidget):
 
         self._refresh_financial(start_date, end_date)
         self._refresh_sales(start_date, end_date)
+        self._refresh_purchases(start_date, end_date)
 
     def _show_invalid_period(self):
         for label in (
@@ -255,6 +396,8 @@ class ReportsPage(QWidget):
         self.transactions_table.setRowCount(0)
         self.products_table.setRowCount(0)
         self.payment_table.setRowCount(0)
+        self.purchase_supplier_table.setRowCount(0)
+        self.purchase_material_table.setRowCount(0)
         self.financial_status.setText(
             "A data inicial deve ser anterior à data final."
         )

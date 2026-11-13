@@ -121,6 +121,7 @@ class ReportsPage(QWidget):
         self._create_purchases_tab()
         self._create_production_tab()
         self._create_stock_tab()
+        self._create_sellers_report_tab()
 
     def _create_financial_tab(self):
         tab = QWidget()
@@ -218,6 +219,51 @@ class ReportsPage(QWidget):
         self.sales_status.setObjectName("page_subtitle")
         layout.addWidget(self.sales_status)
         self.tabs.addTab(tab, "Vendas")
+
+
+    def _create_sellers_report_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(8, 12, 8, 8)
+        layout.setSpacing(14)
+
+        note = QLabel(
+            "Desempenho das lojas parceiras no período selecionado. "
+            "O saldo pendente considera todas as remessas em aberto."
+        )
+        note.setObjectName("page_subtitle")
+        layout.addWidget(note)
+
+        cards = QHBoxLayout()
+        gross_card, self.seller_gross_value = self._create_card(
+            "Vendas brutas consignadas"
+        )
+        commission_card, self.seller_commission_value = self._create_card(
+            "Comissões das lojas"
+        )
+        net_card, self.seller_net_value = self._create_card(
+            "Valor líquido das vendas"
+        )
+        pending_card, self.seller_pending_value = self._create_card(
+            "Saldo pendente de repasse"
+        )
+        for card in (gross_card, commission_card, net_card, pending_card):
+            cards.addWidget(card)
+        layout.addLayout(cards)
+
+        self.sellers_report_table = self._create_table(
+            [
+                "Loja parceira", "Peças vendidas", "Vendas brutas",
+                "Comissão", "Valor líquido", "Repasses no período",
+                "Pendente atual",
+            ],
+            stretch_column=0,
+        )
+        layout.addWidget(self.sellers_report_table, 1)
+        self.sellers_report_status = QLabel("")
+        self.sellers_report_status.setObjectName("page_subtitle")
+        layout.addWidget(self.sellers_report_status)
+        self.tabs.addTab(tab, "Por vendedor")
 
 
     def _create_purchases_tab(self):
@@ -566,6 +612,15 @@ class ReportsPage(QWidget):
         products_title = QLabel("Estoque de produtos")
         products_title.setObjectName("section_title")
         layout.addWidget(products_title)
+        product_filter = QHBoxLayout()
+        product_filter.addWidget(QLabel("Filtrar produto:"))
+        self.stock_product_filter = QLineEdit()
+        self.stock_product_filter.setPlaceholderText("Digite o nome do produto...")
+        self.stock_product_filter.textChanged.connect(
+            self._filter_stock_products
+        )
+        product_filter.addWidget(self.stock_product_filter, 1)
+        layout.addLayout(product_filter)
         self.stock_products_table = self._create_table(
             ["Produto", "Saldo atual", "Valor em estoque"],
             stretch_column=0,
@@ -681,6 +736,117 @@ class ReportsPage(QWidget):
             "ativo(s) analisados. O valor considera o custo registrado nos "
             "movimentos de estoque."
         )
+        self._filter_stock_products()
+
+    def _filter_stock_products(self, *_):
+        term = self.stock_product_filter.text().strip().casefold()
+        for row in range(self.stock_products_table.rowCount()):
+            item = self.stock_products_table.item(row, 0)
+            name = item.text().casefold() if item else ""
+            self.stock_products_table.setRowHidden(row, term not in name)
+
+    def _refresh_sellers_report(self, start_date, end_date):
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                WITH period_sales AS (
+                    SELECT c.seller_id,
+                           SUM(cs.gross_cents) AS gross_cents,
+                           SUM(cs.commission_cents) AS commission_cents,
+                           SUM(cs.net_cents) AS net_cents,
+                           SUM((
+                               SELECT COALESCE(SUM(csi.quantity_milli), 0)
+                               FROM consignment_settlement_items csi
+                               WHERE csi.settlement_id = cs.id
+                           )) AS quantity_milli
+                    FROM consignment_settlements cs
+                    JOIN consignments c ON c.id = cs.consignment_id
+                    WHERE date(cs.settlement_date) BETWEEN date(?) AND date(?)
+                    GROUP BY c.seller_id
+                ),
+                period_payments AS (
+                    SELECT c.seller_id, SUM(cp.amount_cents) AS paid_cents
+                    FROM consignment_payments cp
+                    JOIN consignments c ON c.id = cp.consignment_id
+                    WHERE date(cp.payment_date) BETWEEN date(?) AND date(?)
+                    GROUP BY c.seller_id
+                ),
+                outstanding AS (
+                    SELECT c.seller_id,
+                           SUM(cs.net_cents) -
+                           COALESCE((
+                               SELECT SUM(cp.amount_cents)
+                               FROM consignment_payments cp
+                               JOIN consignments pc ON pc.id = cp.consignment_id
+                               WHERE pc.seller_id = c.seller_id
+                           ), 0) AS pending_cents
+                    FROM consignments c
+                    JOIN consignment_settlements cs ON cs.consignment_id = c.id
+                    GROUP BY c.seller_id
+                )
+                SELECT s.id, s.name,
+                       COALESCE(ps.gross_cents, 0) AS gross_cents,
+                       COALESCE(ps.commission_cents, 0) AS commission_cents,
+                       COALESCE(ps.net_cents, 0) AS net_cents,
+                       COALESCE(ps.quantity_milli, 0) AS quantity_milli,
+                       COALESCE(pp.paid_cents, 0) AS paid_cents,
+                       COALESCE(o.pending_cents, 0) AS pending_cents
+                FROM sellers s
+                LEFT JOIN period_sales ps ON ps.seller_id = s.id
+                LEFT JOIN period_payments pp ON pp.seller_id = s.id
+                LEFT JOIN outstanding o ON o.seller_id = s.id
+                WHERE ps.seller_id IS NOT NULL
+                   OR pp.seller_id IS NOT NULL
+                   OR o.seller_id IS NOT NULL
+                ORDER BY gross_cents DESC, s.name
+                """,
+                (start_date, end_date, start_date, end_date),
+            ).fetchall()
+
+        self.sellers_report_table.setRowCount(len(rows))
+        totals = {
+            "gross": 0, "commission": 0, "net": 0,
+            "paid": 0, "pending": 0,
+        }
+        for row_index, seller in enumerate(rows):
+            totals["gross"] += seller["gross_cents"]
+            totals["commission"] += seller["commission_cents"]
+            totals["net"] += seller["net_cents"]
+            totals["paid"] += seller["paid_cents"]
+            totals["pending"] += seller["pending_cents"]
+            quantity = seller["quantity_milli"] / 1000
+            values = [
+                seller["name"],
+                f"{quantity:,.3f}".replace(",", "X").replace(
+                    ".", ","
+                ).replace("X", "."),
+                self._currency(seller["gross_cents"]),
+                self._currency(seller["commission_cents"]),
+                self._currency(seller["net_cents"]),
+                self._currency(seller["paid_cents"]),
+                self._currency(seller["pending_cents"]),
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(str(value))
+                if column > 0:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                self.sellers_report_table.setItem(row_index, column, item)
+
+        self.seller_gross_value.setText(self._currency(totals["gross"]))
+        self.seller_commission_value.setText(
+            self._currency(totals["commission"])
+        )
+        self.seller_net_value.setText(self._currency(totals["net"]))
+        self.seller_pending_value.setText(
+            self._currency(totals["pending"])
+        )
+        self.sellers_report_status.setText(
+            f"{len(rows)} loja(s) com movimentação no período. "
+            "Repasses exibem os valores recebidos no período; pendências "
+            "representam o saldo atual de todas as remessas."
+        )
 
     def _open_transaction(self, direction):
         dialog = FinancialTransactionDialog(direction, self)
@@ -711,6 +877,7 @@ class ReportsPage(QWidget):
         self._refresh_purchases(start_date, end_date)
         self._refresh_production(start_date, end_date)
         self._refresh_stock()
+        self._refresh_sellers_report(start_date, end_date)
 
     def _show_invalid_period(self):
         for label in (
@@ -736,6 +903,14 @@ class ReportsPage(QWidget):
         self.production_average_value.setText("—")
         self.stock_materials_table.setRowCount(0)
         self.stock_products_table.setRowCount(0)
+        self.sellers_report_table.setRowCount(0)
+        for label in (
+            self.seller_gross_value,
+            self.seller_commission_value,
+            self.seller_net_value,
+            self.seller_pending_value,
+        ):
+            label.setText("—")
         self.financial_status.setText(
             "A data inicial deve ser anterior à data final."
         )

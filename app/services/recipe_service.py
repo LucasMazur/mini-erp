@@ -182,6 +182,30 @@ def add_recipe_item(recipe_id, material_id, quantity, unit_symbol):
         return quantity_milli
 
 
+
+def remove_recipe_item(recipe_id, recipe_item_id):
+    """Remove um material da versão atual ainda em edição."""
+    with get_connection() as connection:
+        version = _get_current_version(connection, recipe_id)
+        item = connection.execute(
+            """
+            SELECT id
+            FROM recipe_items
+            WHERE id = ? AND recipe_version_id = ?
+            """,
+            (recipe_item_id, version["id"]),
+        ).fetchone()
+
+        if item is None:
+            raise ValueError(
+                "O material não pertence à versão atual desta receita."
+            )
+
+        connection.execute(
+            "DELETE FROM recipe_items WHERE id = ?",
+            (recipe_item_id,),
+        )
+
 def finalize_recipe_version(recipe_id):
     """Finaliza a versão atual da receita, impedindo alterações."""
 

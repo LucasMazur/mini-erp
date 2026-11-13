@@ -493,6 +493,36 @@ def initialize_database() -> None:
             ADD COLUMN image_path TEXT
             """,
         ],
+        12: [
+            """
+            CREATE TABLE financial_transactions (
+                id INTEGER PRIMARY KEY,
+                transaction_date TEXT NOT NULL,
+                direction TEXT NOT NULL
+                    CHECK (direction IN ('income', 'expense')),
+                description TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+                payment_method TEXT,
+                category TEXT,
+                origin TEXT NOT NULL
+                    CHECK (origin IN (
+                        'manual', 'purchase', 'sale',
+                        'purchase_reversal', 'sale_reversal'
+                    )),
+                reference_id INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
+            CREATE UNIQUE INDEX idx_financial_origin_reference
+            ON financial_transactions(origin, reference_id)
+            WHERE reference_id IS NOT NULL
+            """,
+            """
+            CREATE INDEX idx_financial_transaction_date
+            ON financial_transactions(transaction_date, direction)
+            """,
+        ],
 
     }
 

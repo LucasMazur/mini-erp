@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -9,7 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.services.recipe_service import list_all_recipes
+from app.services.recipe_service import list_all_recipes, deactivate_recipe
 from PySide6.QtCore import Qt
 
 from app.ui.pages.recipe_form import RecipeForm
@@ -60,6 +61,11 @@ class RecipesPage(QWidget):
         self.view_button.clicked.connect(self.view_selected_recipe)
         actions.addWidget(self.view_button)
 
+        self.delete_button = QPushButton("Excluir receita")
+        self.delete_button.setEnabled(False)
+        self.delete_button.clicked.connect(self.delete_selected_recipe)
+        actions.addWidget(self.delete_button)
+
         actions.addStretch()
         layout.addLayout(actions)
 
@@ -93,6 +99,7 @@ class RecipesPage(QWidget):
     def _update_action_buttons(self):
         selected = self.table.currentRow() >= 0
         self.view_button.setEnabled(selected)
+        self.delete_button.setEnabled(selected)
 
     def open_new_recipe(self):
         dialog = RecipeForm(self)
@@ -142,6 +149,40 @@ class RecipesPage(QWidget):
                 self.table.setItem(row, column, item)
 
         self._update_action_buttons()
+
+    def delete_selected_recipe(self):
+        row = self.table.currentRow()
+        if row < 0:
+            return
+
+        item = self.table.item(row, 0)
+        if item is None:
+            return
+
+        recipe_id = item.data(Qt.ItemDataRole.UserRole)
+        recipe_name = self.table.item(row, 1).text()
+
+        confirmation = QMessageBox.question(
+            self,
+            "Excluir receita",
+            f"Deseja excluir a receita '{recipe_name}'?\n\n"
+            "Ela deixará de aparecer na lista, mas o histórico de "
+            "produções será preservado.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmation != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            deactivate_recipe(recipe_id)
+            self.load_recipes()
+        except ValueError as error:
+            QMessageBox.warning(
+                self,
+                "Não foi possível excluir",
+                str(error),
+            )
 
     def view_selected_recipe(self):
         row = self.table.currentRow()

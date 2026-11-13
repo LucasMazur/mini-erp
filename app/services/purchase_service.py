@@ -64,7 +64,7 @@ def _convert_quantity_milli(
     from_unit,
     to_unit,
 ) -> int:
-    """Converte milésimos da unidade informada para a unidade do estoque."""
+    """Converte milionésimos da unidade informada para a unidade do estoque."""
 
     if from_unit["dimension"] != to_unit["dimension"]:
         raise ValueError(

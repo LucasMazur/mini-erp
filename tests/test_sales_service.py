@@ -89,7 +89,7 @@ def sales_db(tmp_path, monkeypatch):
             "product",
             1,
             "production_output",
-            50000,
+            50000000,
             reference_type="production",
             reference_id=1,
             value_cents=4450,
@@ -109,8 +109,8 @@ def test_create_sale_records_items_and_reduces_stock(sales_db):
     assert sale["subtotal_cents"] == 3000
     assert sale["discount_cents"] == 100
     assert sale["total_cents"] == 2900
-    assert sale["items"][0]["quantity_milli"] == 2000
-    assert stock_service.get_stock_balance("product", 1) == 48000
+    assert sale["items"][0]["quantity_milli"] == 2000000
+    assert stock_service.get_stock_balance("product", 1) == 48000000
 
 
 def test_sale_rejects_insufficient_stock_without_partial_records(sales_db):
@@ -123,7 +123,7 @@ def test_sale_rejects_insufficient_stock_without_partial_records(sales_db):
 
     with sales_db() as connection:
         assert connection.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
-    assert stock_service.get_stock_balance("product", 1) == 50000
+    assert stock_service.get_stock_balance("product", 1) == 50000000
 
 
 def test_sale_rejects_discount_above_subtotal(sales_db):
@@ -145,7 +145,7 @@ def test_reverse_sale_restores_product_stock(sales_db):
 
     sales_service.reverse_sale(sale_id)
 
-    assert stock_service.get_stock_balance("product", 1) == 50000
+    assert stock_service.get_stock_balance("product", 1) == 50000000
     assert sales_service.get_sale(sale_id)["reversed_at"] is not None
 
     with sales_db() as connection:

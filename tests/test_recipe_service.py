@@ -213,7 +213,7 @@ def test_add_recipe_item(test_db, monkeypatch):
         unit_symbol="g",
     )
 
-    assert quantity == 4000
+    assert quantity == 4000000
 
     with test_db() as connection:
         item = connection.execute(
@@ -521,7 +521,7 @@ def test_previous_recipe_version_remains_unchanged(test_db):
             (recipe_id,),
         ).fetchone()
 
-    assert old_item["quantity_milli"] == 4000
+    assert old_item["quantity_milli"] == 4000000
 
 def test_get_recipe_with_versions_and_items(test_db):
     with test_db() as connection:
@@ -575,7 +575,7 @@ def test_get_recipe_with_versions_and_items(test_db):
     assert recipe["product_name"] == "Brinco Lua"
     assert recipe["is_default"] == 1
     assert len(recipe["versions"]) == 2
-    assert recipe["versions"][0]["items"][0]["quantity_milli"] == 4000
+    assert recipe["versions"][0]["items"][0]["quantity_milli"] == 4000000
     assert recipe["versions"][1]["items"] == []
 
 

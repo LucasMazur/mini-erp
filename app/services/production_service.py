@@ -6,6 +6,7 @@ from app.services.recipe_service import get_recipe
 from app.services.stock_service import (
     _get_balances,
     _register_stock_movement,
+    _reverse_stock_movement,
     get_stock_balance,
 )
 
@@ -411,6 +412,94 @@ def register_production(
         connection.close()
 
 
+
+def reverse_production(production_id):
+    """
+    Estorna integralmente uma produção, devolvendo os materiais consumidos
+    e retirando do estoque os produtos acabados gerados.
+
+    O histórico é preservado por meio de movimentações de estorno.
+    """
+    connection = get_connection()
+
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+
+        production = connection.execute(
+            """
+            SELECT id
+            FROM productions
+            WHERE id = ?
+            """,
+            (production_id,),
+        ).fetchone()
+
+        if production is None:
+            raise ValueError("Produção não encontrada.")
+
+        movements = connection.execute(
+            """
+            SELECT id, movement_type
+            FROM stock_movements
+            WHERE reference_type = 'production'
+              AND reference_id = ?
+              AND movement_type IN (
+                  'production_consumption',
+                  'production_output'
+              )
+            ORDER BY
+                CASE movement_type
+                    WHEN 'production_consumption' THEN 0
+                    ELSE 1
+                END,
+                id
+            """,
+            (production_id,),
+        ).fetchall()
+
+        if not movements:
+            raise ValueError(
+                "Não foram encontradas movimentações de estoque "
+                "vinculadas a esta produção."
+            )
+
+        already_reversed = connection.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM stock_movements original
+            JOIN stock_movements reversal
+              ON reversal.reversal_of_id = original.id
+            WHERE original.reference_type = 'production'
+              AND original.reference_id = ?
+              AND original.movement_type IN (
+                  'production_consumption',
+                  'production_output'
+              )
+            """,
+            (production_id,),
+        ).fetchone()["total"]
+
+        if already_reversed:
+            raise ValueError("Esta produção já foi estornada.")
+
+        for movement in movements:
+            _reverse_stock_movement(
+                connection,
+                movement["id"],
+                notes=f"Estorno da produção #{production_id}",
+            )
+
+        connection.commit()
+        return production_id
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
+
+
 def list_productions():
     """Lista o histórico de produções, da mais recente para a mais antiga."""
 
@@ -425,7 +514,34 @@ def list_productions():
                 quantity_milli,
                 total_cost_cents,
                 occurred_at,
-                notes
+                notes,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM stock_movements original
+                        WHERE original.reference_type = 'production'
+                          AND original.reference_id = productions.id
+                          AND original.movement_type IN (
+                              'production_consumption',
+                              'production_output'
+                          )
+                    ) AND NOT EXISTS (
+                        SELECT 1
+                        FROM stock_movements original
+                        WHERE original.reference_type = 'production'
+                          AND original.reference_id = productions.id
+                          AND original.movement_type IN (
+                              'production_consumption',
+                              'production_output'
+                          )
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM stock_movements reversal
+                              WHERE reversal.reversal_of_id = original.id
+                          )
+                    ) THEN 1
+                    ELSE 0
+                END AS is_reversed
             FROM productions
             ORDER BY occurred_at DESC, id DESC
             """

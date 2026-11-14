@@ -19,13 +19,13 @@ def recipe_data():
                         "material_id": 10,
                         "material_name_snapshot": "PLA",
                         "unit_symbol_snapshot": "g",
-                        "quantity_milli": 4000,
+                        "quantity_milli": 4000000,
                     },
                     {
                         "material_id": 20,
                         "material_name_snapshot": "Argola",
                         "unit_symbol_snapshot": "un",
-                        "quantity_milli": 2000,
+                        "quantity_milli": 2000000,
                     },
                 ],
             }
@@ -45,8 +45,8 @@ def test_calculate_required_materials(monkeypatch, recipe_data):
     assert result["recipe_name"] == "Brinco Lua"
     assert result["production_quantity"] == 10
     assert result["version_number"] == 1
-    assert result["materials"][0]["quantity_milli"] == 40000
-    assert result["materials"][1]["quantity_milli"] == 20000
+    assert result["materials"][0]["quantity_milli"] == 40000000
+    assert result["materials"][1]["quantity_milli"] == 20000000
 
 
 @pytest.mark.parametrize("quantity", [0, -1, 1.5, 2.0, "3", True])
@@ -127,8 +127,8 @@ def test_check_production_stock_sufficient(monkeypatch):
         production_service,
         "get_stock_balance",
         lambda item_type, item_id: {
-            10: 100000,
-            20: 50000,
+            10: 100000000,
+            20: 50000000,
         }[item_id],
     )
 
@@ -136,13 +136,13 @@ def test_check_production_stock_sufficient(monkeypatch):
         {
             "material_id": 10,
             "material_name": "PLA",
-            "quantity_milli": 40000,
+            "quantity_milli": 40000000,
             "unit_symbol": "g",
         },
         {
             "material_id": 20,
             "material_name": "Argola",
-            "quantity_milli": 20000,
+            "quantity_milli": 20000000,
             "unit_symbol": "un",
         },
     ]
@@ -158,8 +158,8 @@ def test_check_production_stock_insufficient(monkeypatch):
         production_service,
         "get_stock_balance",
         lambda item_type, item_id: {
-            10: 100000,
-            20: 12000,
+            10: 100000000,
+            20: 12000000,
         }[item_id],
     )
 
@@ -167,13 +167,13 @@ def test_check_production_stock_insufficient(monkeypatch):
         {
             "material_id": 10,
             "material_name": "PLA",
-            "quantity_milli": 40000,
+            "quantity_milli": 40000000,
             "unit_symbol": "g",
         },
         {
             "material_id": 20,
             "material_name": "Argola",
-            "quantity_milli": 20000,
+            "quantity_milli": 20000000,
             "unit_symbol": "un",
         },
     ]
@@ -187,7 +187,7 @@ def test_check_production_stock_insufficient(monkeypatch):
 
 
 def test_check_production_stock_does_not_change_stock(monkeypatch):
-    stock = {10: 100000, 20: 50000}
+    stock = {10: 100000000, 20: 50000}
 
     monkeypatch.setattr(
         production_service,
@@ -201,13 +201,13 @@ def test_check_production_stock_does_not_change_stock(monkeypatch):
         {
             "material_id": 10,
             "material_name": "PLA",
-            "quantity_milli": 40000,
+            "quantity_milli": 40000000,
             "unit_symbol": "g",
         },
         {
             "material_id": 20,
             "material_name": "Argola",
-            "quantity_milli": 20000,
+            "quantity_milli": 20000000,
             "unit_symbol": "un",
         },
     ]
@@ -337,16 +337,16 @@ def production_db(tmp_path, monkeypatch):
                 unit_symbol_snapshot
             )
             VALUES
-                (1, 1, 10, 4000, 'PLA', 'g'),
-                (2, 1, 20, 2000, 'Argola', 'un');
+                (1, 1, 10, 4000000, 'PLA', 'g'),
+                (2, 1, 20, 2000000, 'Argola', 'un');
 
             INSERT INTO stock_movements (
                 material_id, movement_type,
                 quantity_milli, value_cents
             )
             VALUES
-                (10, 'purchase', 1000000, 8500),
-                (20, 'purchase', 100000, 50000);
+                (10, 'purchase', 1000000000, 8500),
+                (20, 'purchase', 100000000, 50000);
         """)
 
     return get_test_connection
@@ -373,20 +373,20 @@ def test_register_production_successfully(production_db):
             (production_id,),
         ).fetchall()
 
-    assert production["quantity_milli"] == 10000
+    assert production["quantity_milli"] == 10000000000000
     assert production["total_cost_cents"] == 10340
     assert production["product_name_snapshot"] == "Brinco Lua"
     assert production["recipe_version_number"] == 1
 
     assert len(items) == 2
-    assert items[0]["quantity_milli"] == 40000
+    assert items[0]["quantity_milli"] == 40000000
     assert items[0]["total_cost_cents"] == 340
-    assert items[1]["quantity_milli"] == 20000
-    assert items[1]["total_cost_cents"] == 10000
+    assert items[1]["quantity_milli"] == 20000000
+    assert items[1]["total_cost_cents"] == 10000000000000
 
-    assert stock_service.get_stock_balance("material", 10) == 960000
-    assert stock_service.get_stock_balance("material", 20) == 80000
-    assert stock_service.get_stock_balance("product", 1) == 10000
+    assert stock_service.get_stock_balance("material", 10) == 960000000
+    assert stock_service.get_stock_balance("material", 20) == 80000000
+    assert stock_service.get_stock_balance("product", 1) == 10000000000000
 
     valuation = stock_service.get_stock_valuation("product", 1)
     assert valuation["value_cents"] == 10340
@@ -411,8 +411,8 @@ def test_insufficient_stock_does_not_register_production(production_db):
     assert production_count == 0
     assert movement_count == 2
 
-    assert stock_service.get_stock_balance("material", 10) == 1000000
-    assert stock_service.get_stock_balance("material", 20) == 100000
+    assert stock_service.get_stock_balance("material", 10) == 1000000000000000
+    assert stock_service.get_stock_balance("material", 20) == 100000000000000
     assert stock_service.get_stock_balance("product", 1) == 0
 
 def test_production_failure_rolls_back_all_movements(production_db):
@@ -450,6 +450,6 @@ def test_production_failure_rolls_back_all_movements(production_db):
     assert production_items_count == 0
     assert movement_count == 2
 
-    assert stock_service.get_stock_balance("material", 10) == 1000000
-    assert stock_service.get_stock_balance("material", 20) == 100000
+    assert stock_service.get_stock_balance("material", 10) == 1000000000000000
+    assert stock_service.get_stock_balance("material", 20) == 100000000000000
     assert stock_service.get_stock_balance("product", 1) == 0

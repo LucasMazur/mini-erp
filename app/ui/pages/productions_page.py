@@ -3,13 +3,17 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from app.services.production_service import list_productions
+from app.services.production_service import (
+    list_productions,
+    reverse_production,
+)
 from app.ui.pages.production_form import ProductionForm
 
 
@@ -40,12 +44,16 @@ class ProductionsPage(QWidget):
         self.new_button.setObjectName("primary_button")
         self.new_button.clicked.connect(self.open_production_form)
         toolbar.addWidget(self.new_button)
+        self.reverse_button = QPushButton("Estornar produção selecionada")
+        self.reverse_button.setEnabled(False)
+        self.reverse_button.clicked.connect(self.reverse_selected_production)
+        toolbar.addWidget(self.reverse_button)
         layout.addLayout(toolbar)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "Data", "Produto", "Receita", "Versão", "Quantidade", "Custo total"
+            "Data", "Produto", "Receita", "Versão", "Quantidade", "Custo total", "Situação"
         ])
         self.table.setEditTriggers(
             QTableWidget.EditTrigger.NoEditTriggers
@@ -64,6 +72,8 @@ class ProductionsPage(QWidget):
         header.setSectionResizeMode(3, header.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, header.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(5, header.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, header.ResizeMode.ResizeToContents)
+        self.table.itemSelectionChanged.connect(self._update_actions)
         layout.addWidget(self.table)
 
     @staticmethod
@@ -96,16 +106,76 @@ class ProductionsPage(QWidget):
                 str(production["recipe_version_number"]),
                 str(quantity),
                 self._format_currency(production["total_cost_cents"]),
+                "Estornada" if production.get("is_reversed") else "Concluída",
             ]
 
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
+                if column == 0:
+                    item.setData(Qt.ItemDataRole.UserRole, production["id"])
                 if column in (3, 4, 5):
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignRight
                         | Qt.AlignmentFlag.AlignVCenter
                     )
                 self.table.setItem(row, column, item)
+
+        self._update_actions()
+
+    def _update_actions(self):
+        row = self.table.currentRow()
+        selected = row >= 0 and self.table.item(row, 0) is not None
+        is_reversed = (
+            selected
+            and self.table.item(row, 6).text() == "Estornada"
+        )
+        self.reverse_button.setEnabled(selected and not is_reversed)
+
+    def reverse_selected_production(self):
+        row = self.table.currentRow()
+        if row < 0:
+            return
+
+        item = self.table.item(row, 0)
+        if item is None:
+            return
+
+        production_id = item.data(Qt.ItemDataRole.UserRole)
+        product_name = self.table.item(row, 1).text()
+        quantity = self.table.item(row, 4).text()
+
+        confirmation = QMessageBox.question(
+            self,
+            "Estornar produção",
+            (
+                f"Deseja estornar a produção #{production_id} de "
+                f"{quantity} unidade(s) de '{product_name}'?\\n\\n"
+                "Os materiais consumidos voltarão ao estoque e os "
+                "produtos acabados desta produção serão retirados do estoque. "
+                "O histórico será preservado como estornado."
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirmation != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            reverse_production(production_id)
+        except ValueError as error:
+            QMessageBox.warning(
+                self,
+                "Não foi possível estornar",
+                str(error),
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Produção estornada",
+            f"A produção #{production_id} foi estornada e o estoque foi atualizado.",
+        )
+        self.load_productions()
 
     def open_production_form(self):
         dialog = ProductionForm(self)

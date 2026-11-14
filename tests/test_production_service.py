@@ -101,7 +101,7 @@ def test_selects_specific_recipe_version(monkeypatch, recipe_data):
                 "material_id": 30,
                 "material_name_snapshot": "PLA especial",
                 "unit_symbol_snapshot": "g",
-                "quantity_milli": 5000,
+                "quantity_milli": 5000000,
             }
         ],
     })
@@ -120,7 +120,7 @@ def test_selects_specific_recipe_version(monkeypatch, recipe_data):
 
     assert result["version_number"] == 2
     assert len(result["materials"]) == 1
-    assert result["materials"][0]["quantity_milli"] == 15000
+    assert result["materials"][0]["quantity_milli"] == 15000000
 
 def test_check_production_stock_sufficient(monkeypatch):
     monkeypatch.setattr(
@@ -450,6 +450,6 @@ def test_production_failure_rolls_back_all_movements(production_db):
     assert production_items_count == 0
     assert movement_count == 2
 
-    assert stock_service.get_stock_balance("material", 10) == 1000000000000000
-    assert stock_service.get_stock_balance("material", 20) == 100000000000000
+    assert stock_service.get_stock_balance("material", 10) == 1000000000
+    assert stock_service.get_stock_balance("material", 20) == 100000000
     assert stock_service.get_stock_balance("product", 1) == 0

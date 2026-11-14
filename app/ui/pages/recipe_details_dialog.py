@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -29,8 +30,8 @@ class RecipeDetailsDialog(QDialog):
         self.recipe = get_recipe(recipe_id)
 
         self.setWindowTitle("Detalhes da receita")
-        self.resize(950, 680)
-        self.setMinimumSize(800, 580)
+        self.resize(1100, 720)
+        self.setMinimumSize(900, 600)
 
         self._create_interface()
         self.load_recipe_details()
@@ -106,7 +107,13 @@ class RecipeDetailsDialog(QDialog):
             QTableWidget.SelectionBehavior.SelectRows
         )
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table.setWordWrap(False)
         self.table.itemSelectionChanged.connect(self._update_remove_button)
 
         layout.addWidget(self.table, 1)
@@ -186,6 +193,7 @@ class RecipeDetailsDialog(QDialog):
 
             for column, value in enumerate(values):
                 cell = QTableWidgetItem(str(value))
+                cell.setToolTip(str(value))
                 if column == 0:
                     cell.setData(Qt.ItemDataRole.UserRole, item["id"])
                 self.table.setItem(row, column, cell)

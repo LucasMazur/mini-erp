@@ -453,3 +453,90 @@ def test_production_failure_rolls_back_all_movements(production_db):
     assert stock_service.get_stock_balance("material", 10) == 1000000000
     assert stock_service.get_stock_balance("material", 20) == 100000000
     assert stock_service.get_stock_balance("product", 1) == 0
+
+
+
+def test_reverse_production_restores_materials_and_removes_output(production_db):
+    production_id = production_service.register_production(
+        product_id=1,
+        recipe_id=1,
+        quantity=10,
+    )
+
+    assert stock_service.get_stock_balance("material", 10) == 960000000
+    assert stock_service.get_stock_balance("material", 20) == 80000000
+    assert stock_service.get_stock_balance("product", 1) == 10000000
+
+    production_service.reverse_production(production_id)
+
+    assert stock_service.get_stock_balance("material", 10) == 1000000000
+    assert stock_service.get_stock_balance("material", 20) == 100000000
+    assert stock_service.get_stock_balance("product", 1) == 0
+
+    with production_db() as connection:
+        original_movements = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM stock_movements
+            WHERE reference_type = 'production'
+              AND reference_id = ?
+              AND movement_type IN (
+                  'production_consumption',
+                  'production_output'
+              )
+            """,
+            (production_id,),
+        ).fetchone()[0]
+        reversal_movements = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM stock_movements reversal
+            JOIN stock_movements original
+              ON original.id = reversal.reversal_of_id
+            WHERE original.reference_type = 'production'
+              AND original.reference_id = ?
+            """,
+            (production_id,),
+        ).fetchone()[0]
+
+    assert original_movements == 3
+    assert reversal_movements == 3
+
+
+def test_reverse_production_cannot_be_repeated(production_db):
+    production_id = production_service.register_production(
+        product_id=1,
+        recipe_id=1,
+        quantity=10,
+    )
+
+    production_service.reverse_production(production_id)
+
+    with pytest.raises(ValueError, match="já foi estornada"):
+        production_service.reverse_production(production_id)
+
+
+def test_reverse_production_rolls_back_if_finished_goods_were_used(production_db):
+    production_id = production_service.register_production(
+        product_id=1,
+        recipe_id=1,
+        quantity=10,
+    )
+
+    with production_db() as connection:
+        stock_service._register_stock_movement(
+            connection,
+            "product",
+            1,
+            "sale",
+            -5000000,
+            reference_type="sale",
+            reference_id=1,
+        )
+
+    with pytest.raises(ValueError, match="estoque negativo"):
+        production_service.reverse_production(production_id)
+
+    assert stock_service.get_stock_balance("material", 10) == 960000000
+    assert stock_service.get_stock_balance("material", 20) == 80000000
+    assert stock_service.get_stock_balance("product", 1) == 5000000

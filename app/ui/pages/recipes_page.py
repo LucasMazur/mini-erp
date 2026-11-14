@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -88,8 +89,15 @@ class RecipesPage(QWidget):
             QTableWidget.SelectionMode.SingleSelection
         )
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table.setWordWrap(False)
 
+        self.table.itemDoubleClicked.connect(self.view_selected_recipe)
         self.table.itemSelectionChanged.connect(
             self._update_action_buttons
         )
@@ -139,6 +147,7 @@ class RecipesPage(QWidget):
 
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
+                item.setToolTip(str(value))
 
                 if column == 0:
                     item.setData(
